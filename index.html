@@ -64,6 +64,290 @@
       <div class="outer">
         <section id="main">
   
+    <article id="post-redis内存耗尽后处理" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/wzg6662.github.io/2021/03/04/redis%E5%86%85%E5%AD%98%E8%80%97%E5%B0%BD%E5%90%8E%E5%A4%84%E7%90%86/" class="article-date">
+  <time datetime="2021-03-04T07:10:31.268Z" itemprop="datePublished">2021-03-04</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <hr>
+<p>title： Redis内存耗尽后会怎么样处理？<br>date： 2020-10-05 11:46:00<br>tags： [redis]</p>
+<hr>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>作为一台服务器来说，内存并不是无限的，所以总会存在内存耗尽的情况，那么当 <code>Redis</code> 服务器的内存耗尽后，如果继续执行请求命令，<code>Redis</code> 会如何处理呢？</p>
+<h1 id="内存回收"><a href="#内存回收" class="headerlink" title="内存回收"></a>内存回收</h1><p>使用<code>Redis</code> 服务时，很多情况下某些键值对只会在特定的时间内有效，为了防止这种类型的数据一直占有内存，我们可以给键值对设置有效期。<code>Redis</code> 中可以通过 <code>4</code> 个独立的命令来给一个键设置过期时间：</p>
+<ul>
+<li><code>expire key ttl</code>：将 <code>key</code> 值的过期时间设置为 <code>ttl</code> <strong>秒</strong>。</li>
+<li><code>pexpire key ttl</code>：将 <code>key</code> 值的过期时间设置为 <code>ttl</code> <strong>毫秒</strong>。</li>
+<li><code>expireat key timestamp</code>：将 <code>key</code> 值的过期时间设置为指定的 <code>timestamp</code> <strong>秒数</strong>。</li>
+<li><code>pexpireat key timestamp</code>：将 <code>key</code> 值的过期时间设置为指定的 <code>timestamp</code> <strong>毫秒数</strong>。</li>
+</ul>
+<p>PS：不管使用哪一个命令，最终 <code>Redis</code> 底层都是使用 <code>pexpireat</code> 命令来实现的。另外，<code>set</code> 等命令也可以设置 <code>key</code> 的同时加上过期时间，这样可以保证设值和设过期时间的原子性。</p>
+<p>设置了有效期后，可以通过 <code>ttl</code> 和 <code>pttl</code> 两个命令来查询剩余过期时间（如果未设置过期时间则下面两个命令返回 <code>-1</code>，如果设置了一个非法的过期时间，则都返回 <code>-2</code>）：</p>
+<ul>
+<li><code>ttl key</code> 返回 <code>key</code> 剩余过期秒数。</li>
+<li><code>pttl key</code> 返回 <code>key</code> 剩余过期的毫秒数。</li>
+</ul>
+<h2 id="过期策略"><a href="#过期策略" class="headerlink" title="过期策略"></a>过期策略</h2><p>如果将一个过期的键删除，我们一般都会有三种策略：</p>
+<ul>
+<li>定时删除：为每个键设置一个定时器，一旦过期时间到了，则将键删除。这种策略对内存很友好，但是对 <code>CPU</code> 不友好，因为每个定时器都会占用一定的 <code>CPU</code> 资源。</li>
+<li>惰性删除：不管键有没有过期都不主动删除，等到每次去获取键时再判断是否过期，如果过期就删除该键，否则返回键对应的值。这种策略对内存不够友好，可能会浪费很多内存。</li>
+<li>定期扫描：系统每隔一段时间就定期扫描一次，发现过期的键就进行删除。这种策略相对来说是上面两种策略的折中方案，需要注意的是这个定期的频率要结合实际情况掌控好，使用这种方案有一个缺陷就是可能会出现已经过期的键也被返回。</li>
+</ul>
+<p>在 <code>Redis</code> 当中，其选择的是策略 <code>2</code> 和策略 <code>3</code> 的综合使用。不过 <code>Redis</code> 的定期扫描只会扫描设置了过期时间的键，因为设置了过期时间的键 <code>Redis</code> 会单独存储，所以不会出现扫描所有键的情况：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">redisDb</span> &#123;</span></span><br><span class="line">    dict *dict; <span class="comment">//所有的键值对</span></span><br><span class="line">    dict *expires; <span class="comment">//设置了过期时间的键值对</span></span><br><span class="line">   dict *blocking_keys; <span class="comment">//被阻塞的key,如客户端执行BLPOP等阻塞指令时</span></span><br><span class="line">   dict *watched_keys; <span class="comment">//WATCHED keys</span></span><br><span class="line">   <span class="keyword">int</span> id; <span class="comment">//Database ID</span></span><br><span class="line">   <span class="comment">//... 省略了其他属性</span></span><br><span class="line">&#125; redisDb;</span><br></pre></td></tr></table></figure>
+
+<h2 id="8-种淘汰策略"><a href="#8-种淘汰策略" class="headerlink" title="8 种淘汰策略"></a>8 种淘汰策略</h2><p>假如 <code>Redis</code> 当中所有的键都没有过期，而且此时内存满了，那么客户端继续执行 <code>set</code> 等命令时 <code>Redis</code> 会怎么处理呢？<code>Redis</code> 当中提供了不同的淘汰策略来处理这种场景。</p>
+<p>首先 <code>Redis</code> 提供了一个参数 <code>maxmemory</code> 来配置 <code>Redis</code> 最大使用内存：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">maxmemory &lt;bytes&gt;</span><br></pre></td></tr></table></figure>
+
+<p>或者也可以通过命令 <code>config set maxmemory 1GB</code> 来动态修改。</p>
+<p>如果没有设置该参数，那么在 <code>32</code> 位的操作系统中 <code>Redis</code> 最多使用 <code>3GB</code> 内存，而在 <code>64</code> 位的操作系统中则不作限制。</p>
+<p><code>Redis</code> 中提供了 <code>8</code> 种淘汰策略，可以通过参数 <code>maxmemory-policy</code> 进行配置：</p>
+<table>
+<thead>
+<tr>
+<th>淘汰策略</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>volatile-lru</td>
+<td>根据 LRU 算法删除设置了过期时间的键，直到腾出可用空间。如果没有可删除的键对象，且内存还是不够用时，则报错</td>
+</tr>
+<tr>
+<td>allkeys-lru</td>
+<td>根据 LRU 算法删除所有的键，直到腾出可用空间。如果没有可删除的键对象，且内存还是不够用时，则报错</td>
+</tr>
+<tr>
+<td>volatile-lfu</td>
+<td>根据 LFU 算法删除设置了过期时间的键，直到腾出可用空间。如果没有可删除的键对象，且内存还是不够用时，则报错</td>
+</tr>
+<tr>
+<td>allkeys-lfu</td>
+<td>根据 LFU 算法删除所有的键，直到腾出可用空间。如果没有可删除的键对象，且内存还是不够用时，则报错</td>
+</tr>
+<tr>
+<td>volatile-random</td>
+<td>随机删除设置了过期时间的键，直到腾出可用空间。如果没有可删除的键对象，且内存还是不够用时，则报错</td>
+</tr>
+<tr>
+<td>allkeys-random</td>
+<td>随机删除所有键，直到腾出可用空间。如果没有可删除的键对象，且内存还是不够用时，则报错</td>
+</tr>
+<tr>
+<td>volatile-ttl</td>
+<td>根据键值对象的 ttl 属性， 删除最近将要过期数据。 如果没有，则直接报错</td>
+</tr>
+<tr>
+<td>noeviction</td>
+<td>默认策略，不作任何处理，直接报错</td>
+</tr>
+</tbody></table>
+<p>PS：淘汰策略也可以直接使用命令 <code>config set maxmemory-policy &lt;策略&gt;</code> 来进行动态配置。</p>
+<h2 id="LRU-算法"><a href="#LRU-算法" class="headerlink" title="LRU 算法"></a>LRU 算法</h2><p><code>LRU</code> 全称为：<code>Least Recently Used</code>。即：最近最长时间未被使用。这个主要针对的是使用时间。</p>
+<h3 id="Redis-改进后的-LRU-算法"><a href="#Redis-改进后的-LRU-算法" class="headerlink" title="Redis 改进后的 LRU 算法"></a>Redis 改进后的 LRU 算法</h3><p>在 <code>Redis</code> 当中，并没有采用传统的 <code>LRU</code> 算法，因为传统的 <code>LRU</code> 算法存在 <code>2</code> 个问题：</p>
+<ul>
+<li>需要额外的空间进行存储。</li>
+<li>可能存在某些 <code>key</code> 值使用很频繁，但是最近没被使用，从而被 <code>LRU</code> 算法删除。</li>
+</ul>
+<p>为了避免以上 <code>2</code> 个问题，<code>Redis</code> 当中对传统的 <code>LRU</code> 算法进行了改造，<strong>通过抽样的方式进行删除</strong>。</p>
+<p>配置文件中提供了一个属性 <code>maxmemory_samples 5</code>，默认值就是 <code>5</code>，表示随机抽取 <code>5</code> 个 <code>key</code> 值，然后对这 <code>5</code> 个 <code>key</code> 值按照 <code>LRU</code> 算法进行删除，所以很明显，<code>key</code> 值越大，删除的准确度越高。</p>
+<p>对抽样 <code>LRU</code> 算法和传统的 <code>LRU</code> 算法，<code>Redis</code> 官网当中有一个对比图：</p>
+<ul>
+<li>浅灰色带是被删除的对象。</li>
+<li>灰色带是未被删除的对象。</li>
+<li>绿色是添加的对象。</li>
+</ul>
+<p><img src="https://img2020.cnblogs.com/blog/2232223/202102/2232223-20210215094536691-559224923.png" alt="img"></p>
+<p>左上角第一幅图代表的是传统 <code>LRU</code> 算法，可以看到，当抽样数达到 <code>10</code> 个（右上角），已经和传统的 <code>LRU</code> 算法非常接近了。</p>
+<h3 id="Redis-如何管理热度数据"><a href="#Redis-如何管理热度数据" class="headerlink" title="Redis 如何管理热度数据"></a>Redis 如何管理热度数据</h3><p>前面我们讲述字符串对象时，提到了 <code>redisObject</code> 对象中存在一个 <code>lru</code> 属性：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">redisObject</span> &#123;</span></span><br><span class="line">    <span class="keyword">unsigned</span> type:<span class="number">4</span>;<span class="comment">//对象类型（4位=0.5字节）</span></span><br><span class="line">    <span class="keyword">unsigned</span> encoding:<span class="number">4</span>;<span class="comment">//编码（4位=0.5字节）</span></span><br><span class="line">    <span class="keyword">unsigned</span> lru:LRU_BITS;<span class="comment">//记录对象最后一次被应用程序访问的时间（24位=3字节）</span></span><br><span class="line">    <span class="keyword">int</span> refcount;<span class="comment">//引用计数。等于0时表示可以被垃圾回收（32位=4字节）</span></span><br><span class="line">    <span class="keyword">void</span> *ptr;<span class="comment">//指向底层实际的数据存储结构，如：SDS等(8字节)</span></span><br><span class="line">&#125; robj;</span><br></pre></td></tr></table></figure>
+
+<p><code>lru</code> 属性是创建对象的时候写入，对象被访问到时也会进行更新。正常人的思路就是最后决定要不要删除某一个键肯定是用当前时间戳减去 <code>lru</code>，差值最大的就优先被删除。但是 <code>Redis</code> 里面并不是这么做的，<code>Redis</code> 中维护了一个全局属性 <code>lru_clock</code>，这个属性是通过一个全局函数 <code>serverCron</code> 每隔 <code>100</code> 毫秒执行一次来更新的，记录的是当前 <code>unix</code> 时间戳。</p>
+<p>最后决定删除的数据是通过 <code>lru_clock</code> 减去对象的 <code>lru</code> 属性而得出的。那么为什么 <code>Redis</code> 要这么做呢？直接取全局时间不是更准确吗？</p>
+<p>这是因为这么做可以避免每次更新对象的 <code>lru</code> 属性的时候可以直接取全局属性，而不需要去调用系统函数来获取系统时间，从而提升效率（<code>Redis</code> 当中有很多这种细节考虑来提升性能，可以说是对性能尽可能的优化到极致）。</p>
+<p>不过这里还有一个问题，我们看到，<code>redisObject</code> 对象中的 <code>lru</code> 属性只有 <code>24</code> 位，<code>24</code> 位只能存储 <code>194</code> 天的时间戳大小，一旦超过 <code>194</code> 天之后就会重新从 <code>0</code> 开始计算，所以这时候就可能会出现 <code>redisObject</code> 对象中的 <code>lru</code> 属性大于全局的 <code>lru_clock</code> 属性的情况。</p>
+<p>正因为如此，所以计算的时候也需要分为 <code>2</code> 种情况：</p>
+<ul>
+<li>当全局 <code>lruclock</code> &gt; <code>lru</code>，则使用 <code>lruclock</code> - <code>lru</code> 得到空闲时间。</li>
+<li>当全局 <code>lruclock</code> &lt; <code>lru</code>，则使用 <code>lruclock_max</code>（即 <code>194</code> 天） - <code>lru</code> + <code>lruclock</code> 得到空闲时间。</li>
+</ul>
+<p>需要注意的是，这种计算方式并不能保证抽样的数据中一定能删除空闲时间最长的。这是因为首先超过 <code>194</code> 天还不被使用的情况很少，再次只有 <code>lruclock</code> 第 <code>2</code> 轮继续超过 <code>lru</code> 属性时，计算才会出问题。</p>
+<p>比如对象 <code>A</code> 记录的 <code>lru</code> 是 <code>1</code> 天，而 <code>lruclock</code> 第二轮都到 <code>10</code> 天了，这时候就会导致计算结果只有 <code>10-1=9</code> 天，实际上应该是 <code>194+10-1=203</code> 天。但是这种情况可以说又是更少发生，所以说这种处理方式是可能存在删除不准确的情况，但是本身这种算法就是一种近似的算法，所以并不会有太大影响。</p>
+<h2 id="LFU-算法"><a href="#LFU-算法" class="headerlink" title="LFU 算法"></a>LFU 算法</h2><p><code>LFU</code> 全称为：<code>Least Frequently Used</code>。即：最近最少频率使用，这个主要针对的是使用频率。这个属性也是记录在<code>redisObject</code> 中的 <code>lru</code> 属性内。</p>
+<p>当我们采用 <code>LFU</code> 回收策略时，<code>lru</code> 属性的高 <code>16</code> 位用来记录访问时间（last decrement time：ldt，单位为分钟），低 <code>8</code> 位用来记录访问频率（logistic counter：logc），简称 <code>counter</code>。</p>
+<h3 id="访问频次递增"><a href="#访问频次递增" class="headerlink" title="访问频次递增"></a>访问频次递增</h3><p><code>LFU</code> 计数器每个键只有 <code>8</code> 位，它能表示的最大值是 <code>255</code>，所以 <code>Redis</code> 使用的是一种基于概率的对数器来实现 <code>counter</code> 的递增。r</p>
+<p>给定一个旧的访问频次，当一个键被访问时，<code>counter</code> 按以下方式递增：</p>
+<ol>
+<li>提取 <code>0</code> 和 <code>1</code> 之间的随机数 <code>R</code>。</li>
+<li><code>counter</code> - 初始值（默认为 <code>5</code>），得到一个基础差值，如果这个差值小于 <code>0</code>，则直接取 <code>0</code>，为了方便计算，把这个差值记为 <code>baseval</code>。</li>
+<li>概率 <code>P</code> 计算公式为：<code>1/(baseval * lfu_log_factor + 1)</code>。</li>
+<li>如果 <code>R &lt; P</code> 时，频次进行递增（<code>counter++</code>）。</li>
+</ol>
+<p>公式中的 <code>lfu_log_factor</code> 称之为对数因子，默认是 <code>10</code> ，可以通过参数来进行控制：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lfu_log_factor <span class="number">10</span></span><br></pre></td></tr></table></figure>
+
+<p>下图就是对数因子 <code>lfu_log_factor</code> 和频次 <code>counter</code> 增长的关系图：</p>
+<p><img src="https://img2020.cnblogs.com/blog/2232223/202102/2232223-20210215094631450-531937582.png" alt="img"></p>
+<p>可以看到，当对数因子 <code>lfu_log_factor</code> 为 <code>100</code> 时，大概是 <code>10M（1000万）</code> 次访问才会将访问 <code>counter</code> 增长到 <code>255</code>，而默认的 <code>10</code> 也能支持到 <code>1M（100万）</code> 次访问 <code>counter</code> 才能达到 <code>255</code> 上限，这在大部分场景都是足够满足需求的。</p>
+<h3 id="访问频次递减"><a href="#访问频次递减" class="headerlink" title="访问频次递减"></a>访问频次递减</h3><p>如果访问频次 <code>counter</code> 只是一直在递增，那么迟早会全部都到 <code>255</code>，也就是说 <code>counter</code> 一直递增不能完全反应一个 <code>key</code>的热度的，所以当某一个 <code>key</code> 一段时间不被访问之后，<code>counter</code> 也需要对应减少。</p>
+<p><code>counter</code> 的减少速度由参数 <code>lfu-decay-time</code> 进行控制，默认是 <code>1</code>，单位是分钟。默认值 <code>1</code> 表示：<code>N</code> 分钟内没有访问，<code>counter</code> 就要减 <code>N</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lfu-decay-time <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<p>具体算法如下：</p>
+<ol>
+<li>获取当前时间戳，转化为<strong>分钟</strong>后取低 <code>16</code> 位（为了方便后续计算，这个值记为 <code>now</code>）。</li>
+<li>取出对象内的 <code>lru</code> 属性中的高 <code>16</code> 位（为了方便后续计算，这个值记为 <code>ldt</code>）。</li>
+<li>当 <code>lru</code> &gt; <code>now</code> 时，默认为过了一个周期（<code>16</code> 位，最大 <code>65535</code>)，则取差值 <code>65535-ldt+now</code>：当 <code>lru</code> &lt;= <code>now</code> 时，取差值 <code>now-ldt</code>（为了方便后续计算，这个差值记为 <code>idle_time</code>）。</li>
+<li>取出配置文件中的 <code>lfu_decay_time</code> 值，然后计算：<code>idle_time / lfu_decay_time</code>（为了方便后续计算，这个值记为<code>num_periods</code>）。</li>
+<li>最后将<code>counter</code>减少：<code>counter - num_periods</code>。</li>
+</ol>
+<p>看起来这么复杂，其实计算公式就是一句话：取出当前的时间戳和对象中的 <code>lru</code> 属性进行对比，计算出当前多久没有被访问到，比如计算得到的结果是 <code>100</code> 分钟没有被访问，然后再去除配置参数 <code>lfu_decay_time</code>，如果这个配置默认为 <code>1</code>也即是 <code>100/1=100</code>，代表 <code>100</code> 分钟没访问，所以 <code>counter</code> 就减少 <code>100</code>。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>本文主要介绍了 <code>Redis</code> 过期键的处理策略，以及当服务器内存不够时 <code>Redis</code> 的 <code>8</code> 种淘汰策略，最后介绍了 <code>Redis</code> 中的两种主要的淘汰算法 <code>LRU</code> 和 <code>LFU</code>。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://wzg6662.github.io/2021/03/04/redis%E5%86%85%E5%AD%98%E8%80%97%E5%B0%BD%E5%90%8E%E5%A4%84%E7%90%86/" data-id="ckluj5du30000v4p45l9v7uqk" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-设计模式 - 单例模式" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" class="article-date">
+  <time datetime="2021-03-03T15:18:23.000Z" itemprop="datePublished">2021-03-03</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/">设计模式 - 单例模式</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p><strong>开篇我就给大家一个思考题</strong>：为什么不用静态方法而用单例模式？ </p>
+<p>首先给单例下一个定义：<strong>在当前进程中，通过单例模式创建的类有且只有一个实例</strong>。</p>
+<p>单例有如下几个特点：</p>
+<ul>
+<li>在Java应用中，单例模式能保证在一个JVM中，该对象只有一个实例存在</li>
+<li>构造器必须是私有的，外部类无法通过调用构造器方法创建该实例</li>
+<li>没有公开的set方法，外部类无法调用set方法创建该实例</li>
+<li>提供一个公开的get方法获取唯一的这个实例</li>
+</ul>
+<p>那单例模式有什么好处呢？</p>
+<ul>
+<li>某些类创建比较频繁，对于一些大型的对象，这是一笔很大的系统开销</li>
+<li>省去了new操作符，降低了系统内存的使用频率，减轻GC压力</li>
+<li>系统中某些类，如spring里的controller，控制着处理流程，如果该类可以创建多个的话，系统完全乱了</li>
+<li>避免了对资源的重复占用</li>
+</ul>
+<p>好了，单例模式的定义也清楚了，好处也了解了，先看一个饿汉式的写法</p>
+<h2 id="饿汉式"><a href="#饿汉式" class="headerlink" title="饿汉式"></a>饿汉式</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 创建一个实例对象</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>之所以叫饿汉式大家可以理解为他饿，他想提前把对象new出来，这样别人哪怕是<strong>第一次</strong>获取这个类对象的时候直接就存在这个类了，省去了创建类这一步的开销。</p>
+<p>等我介绍完懒汉之后，对比一下大家就知道两者的区别，以及各自适用在什么场景了。</p>
+<h2 id="懒汉式"><a href="#懒汉式" class="headerlink" title="懒汉式"></a>懒汉式</h2><p>线程不安全的模式</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance;  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span> <span class="params">()</span></span>&#123;&#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;  </span><br><span class="line">        instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">    <span class="keyword">return</span> instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>懒汉式大家可以理解为他懒，别人<strong>第一次</strong>调用的时候他发现自己的实例是空的，然后去初始化了，再赋值，后面的调用就和饿汉没区别了。</p>
+<p>懒汉和饿汉的对比：大家可以发现两者的区别基本上就是第一次创作时候的开销问题，以及线程安全问题（线程不安全模式的懒汉）。</p>
+<p>那有了这个对比，那他们的场景好理解了，在很多电商场景，如果这个数据是经常访问的热点数据，那我就可以在系统启动的时候使用饿汉模式提前加载（类似缓存的预热）这样哪怕是第一个用户调用都不会存在创建开销，而且调用频繁也不存在内存浪费了。</p>
+<p>而懒汉式呢我们可以用在不怎么热的地方，比如那个数据你不确定很长一段时间是不是有人会调用，那就用懒汉，如果你使用了饿汉，但是过了几个月还没人调用，提前加载的类在内存中是有资源浪费的。</p>
+<h2 id="线程安全问题"><a href="#线程安全问题" class="headerlink" title="线程安全问题"></a>线程安全问题</h2><p>上面的懒汉我是故意没加锁的，大家肯定都知道懒汉的线程安全问题的吧？ </p>
+<p>在运行过程中可能存在这么一种情况：多个线程去调用getInstance方法来获取Singleton的实例，那么就有可能发生这样一种情况，当第一个线程在执行if（instance==null）时，此时instance是为null的进入语句。</p>
+<p>在还没有执行instance=new Singleton()时（此时instance是为null的）第二个线程也进入了if(instance==null)这个语句，因为之前进入这个语句的线程中还没有执行instance=new Singleton()，所以它会执行instance = new Singleton()来实例化Singleton对象，因为第二个线程也进入了if语句所以它会实例化Singleton对象。</p>
+<p>这样就导致了实例化了两个Singleton对象，那怎么解决？</p>
+<p>简单粗暴，加锁就好了，这是加锁之后的代码。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是一种典型的时间换空间的写法，不管三七二十一，每次创建实例时先锁起来，再进行判断，严重降低了系统的处理速度。</p>
+<p>有没有更好的处理方式呢？</p>
+<p>有，通过双检锁做两次判断，代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将synchronized关键字加在了内部，也就是说当调用的时候是不需要加锁的，只有在instance为null，并创建对象的时候才需要加锁，性能有一定的提升。</p>
+<p>但是，这样就没有问题了吗？</p>
+<p>看下面的情况：在Java指令中创建对象和赋值操作是分开进行的，也就是说instance = new Singleton();语句是分两步执行的。</p>
+<p>但是JVM并不保证这两个操作的先后顺序，也就是说有可能JVM会为新的Singleton实例分配空间，然后直接赋值给instance成员，然后再去初始化这个Singleton实例。</p>
+<p>这样就可能出错了，我们以A、B两个线程为例：</p>
+<ol>
+<li><p>A、B线程同时进入了第一个if判断</p>
+</li>
+<li><p>A首先进入synchronized块，由于instance为null，所以它执行instance = new Singleton();</p>
+</li>
+<li><p>由于JVM内部的优化机制，JVM先画出了一些分配给Singleton实例的空白内存，并赋值给instance成员（注意此时JVM没有开始初始化这个实例），然后A离开了synchronized块。</p>
+</li>
+<li><p>B进入synchronized块，由于instance此时不是null，因此它马上离开了synchronized块并将结果返回给调用该方法的程序。</p>
+</li>
+<li><p>此时B线程打算使用Singleton实例，却发现它没有被初始化，于是错误发生了。</p>
+</li>
+</ol>
+<p>加上volatile修饰Singleton，再做一次优化：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>**通过volatile修饰的变量，不会被线程本地缓存，所有线程对该对象的读写都会第一时间同步到主内存，从而保证多个线程间该对象的准确性 **</p>
+<p><strong>volatile的作用</strong></p>
+<ul>
+<li>防止指令重排序，因为instance = new Singleton()不是原子操作</li>
+<li>保证内存可见</li>
+</ul>
+<p>这个是比较完美的写法了，这种方式能够安全的创建唯一的一个实例，又不会对性能有太大的影响。</p>
+<p>但是由于volatile关键字可能会屏蔽掉虚拟机中一些必要的代码优化，所以运行效率并不是很高，还有更优的写法吗？</p>
+<p>通过静态内部类</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 私有构造方法，防止被实例化 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 此处使用一个内部类来维护单例 */</span>  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">SingletonFactory</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 获取实例 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> SingletonFactory.instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 如果该对象被用于序列化，可以保证对象在序列化前后保持一致 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">readResolve</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> getInstance();  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;  </span><br></pre></td></tr></table></figure>
+
+<p>使用内部类来维护单例的实现，JVM内部的机制能够保证当一个类被加载的时候，这个类的加载过程是线程互斥的。</p>
+<p>这样当我们第一次调用getInstance的时候，JVM能够帮我们保证instance只被创建一次，并且会保证把赋值给instance的内存初始化完毕， 这样我们就不用担心上面的问题。</p>
+<p>同时该方法也只会在第一次调用的时候使用互斥机制，这样就解决了低性能问题。这样我们暂时总结一个完美的单例模式。</p>
+<p>还有更完美的写法吗，通过枚举：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public enum Singleton &#123;</span><br><span class="line">    &#x2F;**</span><br><span class="line">     * 定义一个枚举的元素，它就代表了Singleton的一个实例。</span><br><span class="line">     *&#x2F;</span><br><span class="line">    Instance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用枚举来实现单实例控制会更加简洁，而且JVM从根本上提供保障，绝对防止多次实例化，是更简洁、高效、安全的实现单例的方式。</p>
+<p>最后这种也是我最青睐的一种（代码少）。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>最后大家应该都知道单例模式的写法了，也知道优劣势和使用场景了，那开头的那个问题大家心里有答案了么？</p>
+<p>什么？连问题都忘了？问题：为什么不用静态方法而用单例模式？</p>
+<p>两者其实都能实现我们加载的最终目的，但是他们一个是基于对象，一个是面向对象的，就像我们不面向对象也能解决问题一样，面向对象的代码提供一个更好的编程思想。</p>
+<p>如果一个方法和他所在类的实例对象无关，那么它就应该是静态的，反之他就应该是非静态的。如果我们确实应该使用非静态的方法，但是在创建类时又确实只需要维护一份实例时，就需要用单例模式了。</p>
+<p>我们的电商系统中就有很多类，有很多配置和属性，这些配置和属性是一定存在了，又是公共的，同时需要在整个生命周期中都存在，所以只需要一份就行，这个时候如果需要我再需要的时候new一个，再给他分配值，显然是浪费内存并且再赋值没什么意义。</p>
+<p>所以我们用单例模式或静态方法去维持一份这些值有且只有这一份值，但此时这些配置和属性又是通过面向对象的编码方式得到的，我们就应该使用单例模式，或者不是面向对象的，但他本身的属性应该是面对对象的，我们使用静态方法虽然能同样解决问题，但是最好的解决方案也应该是使用单例模式。</p>
+<p>转自公众号，三太子敖丙<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/dW0L-PoBeTFHhD29HJO0BQ">https://mp.weixin.qq.com/s/dW0L-PoBeTFHhD29HJO0BQ</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" data-id="cklugg0w200001pp4hbc867mo" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" rel="tag">单例模式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
     <article id="post-欢迎何小欣！" class="article article-type-post" itemscope itemprop="blogPost">
   <div class="article-meta">
     <a href="/wzg6662.github.io/2021/03/03/%E6%AC%A2%E8%BF%8E%E4%BD%95%E5%B0%8F%E6%AC%A3%EF%BC%81/" class="article-date">
@@ -134,132 +418,6 @@
       
       
   <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/git/" rel="tag">git</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/github/" rel="tag">github</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-设计模式 - 单例模式" class="article article-type-post" itemscope itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/wzg6662.github.io/2020/04/22/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" class="article-date">
-  <time datetime="2020-04-22T15:18:23.000Z" itemprop="datePublished">2020-04-22</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/wzg6662.github.io/2020/04/22/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/">设计模式 - 单例模式</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p><strong>开篇我就给大家一个思考题</strong>：为什么不用静态方法而用单例模式？ </p>
-<p>首先给单例下一个定义：<strong>在当前进程中，通过单例模式创建的类有且只有一个实例</strong>。</p>
-<p>单例有如下几个特点：</p>
-<ul>
-<li>在Java应用中，单例模式能保证在一个JVM中，该对象只有一个实例存在</li>
-<li>构造器必须是私有的，外部类无法通过调用构造器方法创建该实例</li>
-<li>没有公开的set方法，外部类无法调用set方法创建该实例</li>
-<li>提供一个公开的get方法获取唯一的这个实例</li>
-</ul>
-<p>那单例模式有什么好处呢？</p>
-<ul>
-<li>某些类创建比较频繁，对于一些大型的对象，这是一笔很大的系统开销</li>
-<li>省去了new操作符，降低了系统内存的使用频率，减轻GC压力</li>
-<li>系统中某些类，如spring里的controller，控制着处理流程，如果该类可以创建多个的话，系统完全乱了</li>
-<li>避免了对资源的重复占用</li>
-</ul>
-<p>好了，单例模式的定义也清楚了，好处也了解了，先看一个饿汉式的写法</p>
-<h2 id="饿汉式"><a href="#饿汉式" class="headerlink" title="饿汉式"></a>饿汉式</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 创建一个实例对象</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>之所以叫饿汉式大家可以理解为他饿，他想提前把对象new出来，这样别人哪怕是<strong>第一次</strong>获取这个类对象的时候直接就存在这个类了，省去了创建类这一步的开销。</p>
-<p>等我介绍完懒汉之后，对比一下大家就知道两者的区别，以及各自适用在什么场景了。</p>
-<h2 id="懒汉式"><a href="#懒汉式" class="headerlink" title="懒汉式"></a>懒汉式</h2><p>线程不安全的模式</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance;  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span> <span class="params">()</span></span>&#123;&#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;  </span><br><span class="line">        instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">    <span class="keyword">return</span> instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>懒汉式大家可以理解为他懒，别人<strong>第一次</strong>调用的时候他发现自己的实例是空的，然后去初始化了，再赋值，后面的调用就和饿汉没区别了。</p>
-<p>懒汉和饿汉的对比：大家可以发现两者的区别基本上就是第一次创作时候的开销问题，以及线程安全问题（线程不安全模式的懒汉）。</p>
-<p>那有了这个对比，那他们的场景好理解了，在很多电商场景，如果这个数据是经常访问的热点数据，那我就可以在系统启动的时候使用饿汉模式提前加载（类似缓存的预热）这样哪怕是第一个用户调用都不会存在创建开销，而且调用频繁也不存在内存浪费了。</p>
-<p>而懒汉式呢我们可以用在不怎么热的地方，比如那个数据你不确定很长一段时间是不是有人会调用，那就用懒汉，如果你使用了饿汉，但是过了几个月还没人调用，提前加载的类在内存中是有资源浪费的。</p>
-<h2 id="线程安全问题"><a href="#线程安全问题" class="headerlink" title="线程安全问题"></a>线程安全问题</h2><p>上面的懒汉我是故意没加锁的，大家肯定都知道懒汉的线程安全问题的吧？</p>
-<p>？？？忘了？那好吧，暖男带你回忆一波吧。</p>
-<p><img src="https://mmbiz.qpic.cn/mmbiz_jpg/uChmeeX1FpzVbzG0n0ZlOtOqsW7VaWiadibOSW8EGA6yqbQV62bvvicFgw89NA2euSbKb6ic2no7G9ybapT2UosMMA/640?wx_fmt=jpeg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1" alt="图片"></p>
-<p>在运行过程中可能存在这么一种情况：多个线程去调用getInstance方法来获取Singleton的实例，那么就有可能发生这样一种情况，当第一个线程在执行if（instance==null）时，此时instance是为null的进入语句。</p>
-<p>在还没有执行instance=new Singleton()时（此时instance是为null的）第二个线程也进入了if(instance==null)这个语句，因为之前进入这个语句的线程中还没有执行instance=new Singleton()，所以它会执行instance = new Singleton()来实例化Singleton对象，因为第二个线程也进入了if语句所以它会实例化Singleton对象。</p>
-<p>这样就导致了实例化了两个Singleton对象，那怎么解决？</p>
-<p>简单粗暴，加锁就好了，这是加锁之后的代码。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这是一种典型的时间换空间的写法，不管三七二十一，每次创建实例时先锁起来，再进行判断，严重降低了系统的处理速度。</p>
-<p>有没有更好的处理方式呢？</p>
-<p>有，通过双检锁做两次判断，代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>将synchronized关键字加在了内部，也就是说当调用的时候是不需要加锁的，只有在instance为null，并创建对象的时候才需要加锁，性能有一定的提升。</p>
-<p>但是，这样就没有问题了吗？</p>
-<p>看下面的情况：在Java指令中创建对象和赋值操作是分开进行的，也就是说instance = new Singleton();语句是分两步执行的。</p>
-<p>但是JVM并不保证这两个操作的先后顺序，也就是说有可能JVM会为新的Singleton实例分配空间，然后直接赋值给instance成员，然后再去初始化这个Singleton实例。</p>
-<p>这样就可能出错了，我们以A、B两个线程为例：</p>
-<ol>
-<li><p>A、B线程同时进入了第一个if判断</p>
-</li>
-<li><p>A首先进入synchronized块，由于instance为null，所以它执行instance = new Singleton();</p>
-</li>
-<li><p>由于JVM内部的优化机制，JVM先画出了一些分配给Singleton实例的空白内存，并赋值给instance成员（注意此时JVM没有开始初始化这个实例），然后A离开了synchronized块。</p>
-<p><img src="https://mmbiz.qpic.cn/mmbiz_jpg/uChmeeX1FpzVbzG0n0ZlOtOqsW7VaWiadk2hWmb7oY3skFSfE0GFFlSng40Z4iaicp4xNRIIg3Ctn9VvJagiaxxQEQ/640?wx_fmt=jpeg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1" alt="图片">image-20201212010622553</p>
-</li>
-<li><p>B进入synchronized块，由于instance此时不是null，因此它马上离开了synchronized块并将结果返回给调用该方法的程序。</p>
-</li>
-<li><p>此时B线程打算使用Singleton实例，却发现它没有被初始化，于是错误发生了。</p>
-</li>
-</ol>
-<p>加上volatile修饰Singleton，再做一次优化：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>**通过volatile修饰的变量，不会被线程本地缓存，所有线程对该对象的读写都会第一时间同步到主内存，从而保证多个线程间该对象的准确性 **</p>
-<p><strong>volatile的作用</strong></p>
-<ul>
-<li>防止指令重排序，因为instance = new Singleton()不是原子操作</li>
-<li>保证内存可见</li>
-</ul>
-<p>这个是比较完美的写法了，这种方式能够安全的创建唯一的一个实例，又不会对性能有太大的影响。</p>
-<p>但是由于volatile关键字可能会屏蔽掉虚拟机中一些必要的代码优化，所以运行效率并不是很高，还有更优的写法吗？</p>
-<p>通过静态内部类</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 私有构造方法，防止被实例化 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 此处使用一个内部类来维护单例 */</span>  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">SingletonFactory</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 获取实例 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> SingletonFactory.instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 如果该对象被用于序列化，可以保证对象在序列化前后保持一致 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">readResolve</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> getInstance();  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;  </span><br></pre></td></tr></table></figure>
-
-<p>使用内部类来维护单例的实现，JVM内部的机制能够保证当一个类被加载的时候，这个类的加载过程是线程互斥的。</p>
-<p>这样当我们第一次调用getInstance的时候，JVM能够帮我们保证instance只被创建一次，并且会保证把赋值给instance的内存初始化完毕， 这样我们就不用担心上面的问题。</p>
-<p>同时该方法也只会在第一次调用的时候使用互斥机制，这样就解决了低性能问题。这样我们暂时总结一个完美的单例模式。</p>
-<p>还有更完美的写法吗，通过枚举：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public enum Singleton &#123;</span><br><span class="line">    &#x2F;**</span><br><span class="line">     * 定义一个枚举的元素，它就代表了Singleton的一个实例。</span><br><span class="line">     *&#x2F;</span><br><span class="line">    Instance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>使用枚举来实现单实例控制会更加简洁，而且JVM从根本上提供保障，绝对防止多次实例化，是更简洁、高效、安全的实现单例的方式。</p>
-<p>最后这种也是我最青睐的一种（代码少）。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>最后大家应该都知道单例模式的写法了，也知道优劣势和使用场景了，那开头的那个问题大家心里有答案了么？</p>
-<p>什么？连问题都忘了？问题：为什么不用静态方法而用单例模式？</p>
-<p>两者其实都能实现我们加载的最终目的，但是他们一个是基于对象，一个是面向对象的，就像我们不面向对象也能解决问题一样，面向对象的代码提供一个更好的编程思想。</p>
-<p>如果一个方法和他所在类的实例对象无关，那么它就应该是静态的，反之他就应该是非静态的。如果我们确实应该使用非静态的方法，但是在创建类时又确实只需要维护一份实例时，就需要用单例模式了。</p>
-<p>我们的电商系统中就有很多类，有很多配置和属性，这些配置和属性是一定存在了，又是公共的，同时需要在整个生命周期中都存在，所以只需要一份就行，这个时候如果需要我再需要的时候new一个，再给他分配值，显然是浪费内存并且再赋值没什么意义。</p>
-<p>所以我们用单例模式或静态方法去维持一份这些值有且只有这一份值，但此时这些配置和属性又是通过面向对象的编码方式得到的，我们就应该使用单例模式，或者不是面向对象的，但他本身的属性应该是面对对象的，我们使用静态方法虽然能同样解决问题，但是最好的解决方案也应该是使用单例模式。</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://wzg6662.github.io/2020/04/22/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" data-id="cklugg0w200001pp4hbc867mo" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" rel="tag">单例模式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a></li></ul>
 
     </footer>
   </div>
@@ -723,7 +881,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2021/03/">March 2021</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/04/">April 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2018/12/">December 2018</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2021/03/">March 2021</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2018/12/">December 2018</a></li></ul>
     </div>
   </div>
 
@@ -736,6 +894,14 @@
       <ul>
         
           <li>
+            <a href="/wzg6662.github.io/2021/03/04/redis%E5%86%85%E5%AD%98%E8%80%97%E5%B0%BD%E5%90%8E%E5%A4%84%E7%90%86/">(no title)</a>
+          </li>
+        
+          <li>
+            <a href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/">设计模式 - 单例模式</a>
+          </li>
+        
+          <li>
             <a href="/wzg6662.github.io/2021/03/03/%E6%AC%A2%E8%BF%8E%E4%BD%95%E5%B0%8F%E6%AC%A3%EF%BC%81/">这是我的第一篇博客</a>
           </li>
         
@@ -744,15 +910,7 @@
           </li>
         
           <li>
-            <a href="/wzg6662.github.io/2020/04/22/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/">设计模式 - 单例模式</a>
-          </li>
-        
-          <li>
             <a href="/wzg6662.github.io/2019/03/03/%E6%90%AD%E8%BD%BDhexo%20+%20github%E9%83%A8%E7%BD%B2/">搭载hexo + github部署</a>
-          </li>
-        
-          <li>
-            <a href="/wzg6662.github.io/2019/03/03/Typora%E5%BF%AB%E6%8D%B7%E9%94%AE/">Typora快捷键</a>
           </li>
         
       </ul>
