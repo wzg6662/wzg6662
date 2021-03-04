@@ -278,7 +278,7 @@
 <p>② 点击 SSH and GPG Keys：<br><img src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly9pLmxvbGkubmV0LzIwMTkvMDMvMjUvNWM5OGY2MjJiNDU4OC5wbmc" alt="img"></p>
 <p>③ 选择 New SSH key：<br><img src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly9pLmxvbGkubmV0LzIwMTkvMDMvMjUvNWM5OGY2M2ViMWFiMi5wbmc" alt="img"></p>
 <p>④ 粘贴密钥：<br><img src="https://imgconvert.csdnimg.cn/aHR0cHM6Ly9pLmxvbGkubmV0LzIwMTkvMDMvMjUvNWM5OGY2YmMxZmM4Ny5wbmc" alt="img"></p>
-<h2 id="•-测试"><a href="#•-测试" class="headerlink" title="\• 测试**"></a><strong><em>\</em>• 测试**</strong></h2><p>输入以下命令：注意：<a href="mailto:&#103;&#105;&#116;&#64;&#103;&#105;&#116;&#104;&#117;&#98;&#46;&#99;&#x6f;&#109;">&#103;&#105;&#116;&#64;&#103;&#105;&#116;&#104;&#117;&#98;&#46;&#99;&#x6f;&#109;</a>不要做任何更改！</p>
+<h2 id="•-测试"><a href="#•-测试" class="headerlink" title="\• 测试**"></a><strong><em>\</em>• 测试**</strong></h2><p>输入以下命令：注意：<a href="mailto:&#103;&#105;&#x74;&#64;&#103;&#105;&#x74;&#x68;&#x75;&#x62;&#x2e;&#99;&#111;&#x6d;">&#103;&#105;&#x74;&#64;&#103;&#105;&#x74;&#x68;&#x75;&#x62;&#x2e;&#99;&#111;&#x6d;</a>不要做任何更改！</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ssh -T git@github.com</span><br></pre></td></tr></table></figure>
 
 <ul>
@@ -305,32 +305,42 @@
 <p>或者直接执行</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo g -d</span><br></pre></td></tr></table></figure>
 
-<ul>
-<li></li>
-</ul>
 <p>执行完之后会让你输入你的 Github 的账号和密码，如果此时报以下错误，说明你的 deployer 没有安装成功</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ERROR Deployer not found: git</span><br></pre></td></tr></table></figure>
 
-<ul>
-<li></li>
-</ul>
 <p>需要执行以下命令再安装一次：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install hexo-deployer-git --save</span><br></pre></td></tr></table></figure>
 
-<ul>
-<li>1</li>
-</ul>
 <p>再执行 <code>hexo g -d</code>，你的博客就会部署到 Github 上了</p>
 <p>⑦ 访问博客</p>
 <p>你的博客地址：https://你的用户名.github.io，比如我的是：<a target="_blank" rel="noopener" href="https://trhx.github.io/">https://trhx.github.io</a> ,现在每个人都可以通过此链接访问你的博客了</p>
-<h2 id="可能遇到的问题问题："><a href="#可能遇到的问题问题：" class="headerlink" title="可能遇到的问题问题："></a>可能遇到的问题问题：</h2><p>​    1.可以访问到博客，但是无样式</p>
+<h2 id="可能遇到的问题问题："><a href="#可能遇到的问题问题：" class="headerlink" title="可能遇到的问题问题："></a>可能遇到的问题问题：</h2><p><strong>1.可以访问到博客，但是无样式</strong></p>
 <p>​        ①修改GitHub上的Reository名字：改为xxx.github.io</p>
 <p>​        ②修改——config.yml的值，url：//GitHub上给的地址</p>
 <p>​                                                        root://GitHub上给的地址</p>
-<p>2.hexo d 无法推到github上，原因是2020-10-1后默认分支不叫master了，叫main，我把main改为master就可正常push</p>
+<p><strong>2.hexo d 无法推到github上</strong></p>
+<p>原因是2020-10-1后默认分支不叫master了，叫main，我把main改为master就可正常push</p>
+<p><strong>3.输入以下命令可能出错</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ssh -T git@github.com</span><br></pre></td></tr></table></figure>
+
+<p>Warning: Permanently added the RSA host key for IP address ‘xxx.xxx.xx.xx’ to the list of known host</p>
+<p>那条警告的大概意思就是：警告：为IP地址13.229.188.59的主机（RSA连接的）持久添加到hosts文件中，那就来添加吧！</p>
+<p>解决办法：<br><u>linux环境</u><br>　　<br>打开</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim &#x2F;etc&#x2F;hosts</span><br></pre></td></tr></table></figure>
+
+<p>添加一行：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">13.229.188.59　　github.com</span><br></pre></td></tr></table></figure>
+
+<p> <u>Windows环境：</u><br>打开</p>
+<p>C:\Windows\System32\drivers\etc\hosts<br>添加一行：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">13.229.188.59　　github.com</span><br></pre></td></tr></table></figure>
+
+<p> <strong>4.解决国内无法访问github pages的方法</strong></p>
+<p>你的github.pages还能正常访问吗？<br>最近很多人反馈我的github.io不能正常访问了<br>我来告诉你解决方案，修改dns服务器就可以了，修改为114.114.114.114</p>
+<p>具体怎么操作的，控制面板-网络和internet - 网络和共享中心 （选择你的网络进入）- 属性-IPv4-使用下面的DNS服务器地址-修改为114.114.114.114</p>
 <h1 id="3-编辑文本"><a href="#3-编辑文本" class="headerlink" title="3.编辑文本"></a>3.编辑文本</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">1. \---</span><br><span class="line">2. layout: 页面布局（配合主题文档使用）</span><br><span class="line">3. title: 文章名称</span><br><span class="line">4. date: 文章日期</span><br><span class="line">5. comments: 文章是否开启评论</span><br><span class="line">6. photos: 文章封面图（仅部分主题支持）</span><br><span class="line">7. tags: </span><br><span class="line">8.   \- 文章标签一</span><br><span class="line">9.   \- 文章标签二</span><br><span class="line">10. categories: 文章分类</span><br><span class="line">11. description: 文章描述，即要在首页显示的摘要（仅部分主题支持）</span><br><span class="line">12. \---</span><br><span class="line">13.  </span><br><span class="line">14. 这里是摘要</span><br><span class="line">15.  </span><br><span class="line">16. &lt;!-- more --&gt;</span><br><span class="line">17.  </span><br><span class="line">18. 这里是正文</span><br><span class="line">19.  </span><br><span class="line">20. 注意：description 和 &lt;!-- more --&gt; 方式显示摘要二选一即可，部分主题不支持description，每个配置英文冒号后面要空一格，不同主题配置有所差异，具体要参考主题文档</span><br></pre></td></tr></table></figure>
 
-
+<h1 id=""><a href="#" class="headerlink" title=""></a></h1>
       
     </div>
     <footer class="article-footer">
