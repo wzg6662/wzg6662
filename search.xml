@@ -588,4 +588,39 @@
         <tag>Redis</tag>
       </tags>
   </entry>
+  <entry>
+    <title>PM2 常用命令</title>
+    <url>/wzg6662.github.io/2020/09/22/PM2-%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4/</url>
+    <content><![CDATA[<h2 id="PM2-常用命令"><a href="#PM2-常用命令" class="headerlink" title="PM2 常用命令"></a>PM2 常用命令</h2><p>$ pm2 start app.js # 启动app.js应用程序</p>
+<p>$ pm2 start app.js -i 4 # cluster mode 模式启动4个app.js的应用实例 4个应用程序会自动进行负载均衡</p>
+<p>$ pm2 start app.js –name=”api” # 启动应用程序并命名为 “api”</p>
+<p>$ pm2 start app.js –watch # 当文件变化时自动重启应用</p>
+<p>$ pm2 start script.sh # 启动 bash 脚本</p>
+<p>$ pm2 list # 列表 PM2 启动的所有的应用程序</p>
+<p>$ pm2 monit # 显示每个应用程序的CPU和内存占用情况</p>
+<p>$ pm2 show [app-name] # 显示应用程序的所有信息</p>
+<p>$ pm2 logs # 显示所有应用程序的日志</p>
+<p>$ pm2 logs [app-name] # 显示指定应用程序的日志</p>
+<p>$ pm2 flush</p>
+<p>$ pm2 stop all # 停止所有的应用程序</p>
+<p>$ pm2 stop 0 # 停止 id为 0的指定应用程序</p>
+<p>$ pm2 restart all # 重启所有应用</p>
+<p>$ pm2 reload all # 重启 cluster mode下的所有应用</p>
+<p>$ pm2 gracefulReload all # Graceful reload all apps in cluster mode</p>
+<p>$ pm2 delete all # 关闭并删除所有应用</p>
+<p>$ pm2 delete 0 # 删除指定应用 id 0</p>
+<p>$ pm2 scale api 10 # 把名字叫api的应用扩展到10个实例</p>
+<p>$ pm2 reset [app-name] # 重置重启数量</p>
+<p>$ pm2 startup # 创建开机自启动命令</p>
+<p>$ pm2 save # 保存当前应用列表</p>
+<p>$ pm2 resurrect # 重新加载保存的应用列表</p>
+<p>$ pm2 update # Save processes, kill PM2 and restore processes</p>
+<p>$ pm2 generate # Generate a sample json configuration file</p>
+]]></content>
+      <tags>
+        <tag>PM2</tag>
+        <tag>命令</tag>
+        <tag>linux</tag>
+      </tags>
+  </entry>
 </search>
