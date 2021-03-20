@@ -364,15 +364,188 @@
 
 
   
-    <article id="post-E9流程表单前端接口API" class="article article-type-post" itemscope itemprop="blogPost">
+    <article id="post-设计模式 - 单例模式" class="article article-type-post" itemscope itemprop="blogPost">
   <div class="article-meta">
-    <a href="/wzg6662.github.io/2021/03/09/E9%E6%B5%81%E7%A8%8B%E8%A1%A8%E5%8D%95%E5%89%8D%E7%AB%AF%E6%8E%A5%E5%8F%A3API/" class="article-date">
-  <time datetime="2021-03-09T02:08:23.108Z" itemprop="datePublished">2021-03-09</time>
+    <a href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" class="article-date">
+  <time datetime="2021-03-03T15:18:23.000Z" itemprop="datePublished">2021-03-03</time>
 </a>
     
   </div>
   <div class="article-inner">
     
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/">设计模式 - 单例模式</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p><strong>开篇我就给大家一个思考题</strong>：为什么不用静态方法而用单例模式？ </p>
+<p>首先给单例下一个定义：<strong>在当前进程中，通过单例模式创建的类有且只有一个实例</strong>。</p>
+<p>单例有如下几个特点：</p>
+<ul>
+<li>在Java应用中，单例模式能保证在一个JVM中，该对象只有一个实例存在</li>
+<li>构造器必须是私有的，外部类无法通过调用构造器方法创建该实例</li>
+<li>没有公开的set方法，外部类无法调用set方法创建该实例</li>
+<li>提供一个公开的get方法获取唯一的这个实例</li>
+</ul>
+<p>那单例模式有什么好处呢？</p>
+<ul>
+<li>某些类创建比较频繁，对于一些大型的对象，这是一笔很大的系统开销</li>
+<li>省去了new操作符，降低了系统内存的使用频率，减轻GC压力</li>
+<li>系统中某些类，如spring里的controller，控制着处理流程，如果该类可以创建多个的话，系统完全乱了</li>
+<li>避免了对资源的重复占用</li>
+</ul>
+<p>好了，单例模式的定义也清楚了，好处也了解了，先看一个饿汉式的写法</p>
+<h2 id="饿汉式"><a href="#饿汉式" class="headerlink" title="饿汉式"></a>饿汉式</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 创建一个实例对象</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>之所以叫饿汉式大家可以理解为他饿，他想提前把对象new出来，这样别人哪怕是<strong>第一次</strong>获取这个类对象的时候直接就存在这个类了，省去了创建类这一步的开销。</p>
+<p>等我介绍完懒汉之后，对比一下大家就知道两者的区别，以及各自适用在什么场景了。</p>
+<h2 id="懒汉式"><a href="#懒汉式" class="headerlink" title="懒汉式"></a>懒汉式</h2><p>线程不安全的模式</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance;  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span> <span class="params">()</span></span>&#123;&#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;  </span><br><span class="line">        instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">    <span class="keyword">return</span> instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>懒汉式大家可以理解为他懒，别人<strong>第一次</strong>调用的时候他发现自己的实例是空的，然后去初始化了，再赋值，后面的调用就和饿汉没区别了。</p>
+<p>懒汉和饿汉的对比：大家可以发现两者的区别基本上就是第一次创作时候的开销问题，以及线程安全问题（线程不安全模式的懒汉）。</p>
+<p>那有了这个对比，那他们的场景好理解了，在很多电商场景，如果这个数据是经常访问的热点数据，那我就可以在系统启动的时候使用饿汉模式提前加载（类似缓存的预热）这样哪怕是第一个用户调用都不会存在创建开销，而且调用频繁也不存在内存浪费了。</p>
+<p>而懒汉式呢我们可以用在不怎么热的地方，比如那个数据你不确定很长一段时间是不是有人会调用，那就用懒汉，如果你使用了饿汉，但是过了几个月还没人调用，提前加载的类在内存中是有资源浪费的。</p>
+<h2 id="线程安全问题"><a href="#线程安全问题" class="headerlink" title="线程安全问题"></a>线程安全问题</h2><p>上面的懒汉我是故意没加锁的，大家肯定都知道懒汉的线程安全问题的吧？ </p>
+<p>在运行过程中可能存在这么一种情况：多个线程去调用getInstance方法来获取Singleton的实例，那么就有可能发生这样一种情况，当第一个线程在执行if（instance==null）时，此时instance是为null的进入语句。</p>
+<p>在还没有执行instance=new Singleton()时（此时instance是为null的）第二个线程也进入了if(instance==null)这个语句，因为之前进入这个语句的线程中还没有执行instance=new Singleton()，所以它会执行instance = new Singleton()来实例化Singleton对象，因为第二个线程也进入了if语句所以它会实例化Singleton对象。</p>
+<p>这样就导致了实例化了两个Singleton对象，那怎么解决？</p>
+<p>简单粗暴，加锁就好了，这是加锁之后的代码。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是一种典型的时间换空间的写法，不管三七二十一，每次创建实例时先锁起来，再进行判断，严重降低了系统的处理速度。</p>
+<p>有没有更好的处理方式呢？</p>
+<p>有，通过双检锁做两次判断，代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将synchronized关键字加在了内部，也就是说当调用的时候是不需要加锁的，只有在instance为null，并创建对象的时候才需要加锁，性能有一定的提升。</p>
+<p>但是，这样就没有问题了吗？</p>
+<p>看下面的情况：在Java指令中创建对象和赋值操作是分开进行的，也就是说instance = new Singleton();语句是分两步执行的。</p>
+<p>但是JVM并不保证这两个操作的先后顺序，也就是说有可能JVM会为新的Singleton实例分配空间，然后直接赋值给instance成员，然后再去初始化这个Singleton实例。</p>
+<p>这样就可能出错了，我们以A、B两个线程为例：</p>
+<ol>
+<li><p>A、B线程同时进入了第一个if判断</p>
+</li>
+<li><p>A首先进入synchronized块，由于instance为null，所以它执行instance = new Singleton();</p>
+</li>
+<li><p>由于JVM内部的优化机制，JVM先画出了一些分配给Singleton实例的空白内存，并赋值给instance成员（注意此时JVM没有开始初始化这个实例），然后A离开了synchronized块。</p>
+</li>
+<li><p>B进入synchronized块，由于instance此时不是null，因此它马上离开了synchronized块并将结果返回给调用该方法的程序。</p>
+</li>
+<li><p>此时B线程打算使用Singleton实例，却发现它没有被初始化，于是错误发生了。</p>
+</li>
+</ol>
+<p>加上volatile修饰Singleton，再做一次优化：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>**通过volatile修饰的变量，不会被线程本地缓存，所有线程对该对象的读写都会第一时间同步到主内存，从而保证多个线程间该对象的准确性 **</p>
+<p><strong>volatile的作用</strong></p>
+<ul>
+<li>防止指令重排序，因为instance = new Singleton()不是原子操作</li>
+<li>保证内存可见</li>
+</ul>
+<p>这个是比较完美的写法了，这种方式能够安全的创建唯一的一个实例，又不会对性能有太大的影响。</p>
+<p>但是由于volatile关键字可能会屏蔽掉虚拟机中一些必要的代码优化，所以运行效率并不是很高，还有更优的写法吗？</p>
+<p>通过静态内部类</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 私有构造方法，防止被实例化 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 此处使用一个内部类来维护单例 */</span>  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">SingletonFactory</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 获取实例 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> SingletonFactory.instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 如果该对象被用于序列化，可以保证对象在序列化前后保持一致 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">readResolve</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> getInstance();  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;  </span><br></pre></td></tr></table></figure>
+
+<p>使用内部类来维护单例的实现，JVM内部的机制能够保证当一个类被加载的时候，这个类的加载过程是线程互斥的。</p>
+<p>这样当我们第一次调用getInstance的时候，JVM能够帮我们保证instance只被创建一次，并且会保证把赋值给instance的内存初始化完毕， 这样我们就不用担心上面的问题。</p>
+<p>同时该方法也只会在第一次调用的时候使用互斥机制，这样就解决了低性能问题。这样我们暂时总结一个完美的单例模式。</p>
+<p>还有更完美的写法吗，通过枚举：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public enum Singleton &#123;</span><br><span class="line">    &#x2F;**</span><br><span class="line">     * 定义一个枚举的元素，它就代表了Singleton的一个实例。</span><br><span class="line">     *&#x2F;</span><br><span class="line">    Instance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用枚举来实现单实例控制会更加简洁，而且JVM从根本上提供保障，绝对防止多次实例化，是更简洁、高效、安全的实现单例的方式。</p>
+<p>最后这种也是我最青睐的一种（代码少）。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>最后大家应该都知道单例模式的写法了，也知道优劣势和使用场景了，那开头的那个问题大家心里有答案了么？</p>
+<p>什么？连问题都忘了？问题：为什么不用静态方法而用单例模式？</p>
+<p>两者其实都能实现我们加载的最终目的，但是他们一个是基于对象，一个是面向对象的，就像我们不面向对象也能解决问题一样，面向对象的代码提供一个更好的编程思想。</p>
+<p>如果一个方法和他所在类的实例对象无关，那么它就应该是静态的，反之他就应该是非静态的。如果我们确实应该使用非静态的方法，但是在创建类时又确实只需要维护一份实例时，就需要用单例模式了。</p>
+<p>我们的电商系统中就有很多类，有很多配置和属性，这些配置和属性是一定存在了，又是公共的，同时需要在整个生命周期中都存在，所以只需要一份就行，这个时候如果需要我再需要的时候new一个，再给他分配值，显然是浪费内存并且再赋值没什么意义。</p>
+<p>所以我们用单例模式或静态方法去维持一份这些值有且只有这一份值，但此时这些配置和属性又是通过面向对象的编码方式得到的，我们就应该使用单例模式，或者不是面向对象的，但他本身的属性应该是面对对象的，我们使用静态方法虽然能同样解决问题，但是最好的解决方案也应该是使用单例模式。</p>
+<p>转自公众号，三太子敖丙<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/dW0L-PoBeTFHhD29HJO0BQ">https://mp.weixin.qq.com/s/dW0L-PoBeTFHhD29HJO0BQ</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" data-id="cklugg0w200001pp4hbc867mo" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" rel="tag">单例模式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-github-国内镜像" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/wzg6662.github.io/2021/03/03/github-%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/" class="article-date">
+  <time datetime="2021-03-03T03:23:22.000Z" itemprop="datePublished">2021-03-03</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/wzg6662.github.io/2021/03/03/github-%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/">github 国内镜像</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id=""><a href="#" class="headerlink" title=""></a></h2><p><a target="_blank" rel="noopener" href="https://github.com.cnpmjs.org/">github.com.cnpmjs.org</a>（亲测这个访问速度较快）和<a target="_blank" rel="noopener" href="https://git.sdut.me/">git.sdut.me</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://wzg6662.github.io/2021/03/03/github-%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/" data-id="ckluan1z20000xzp4a6hn08ci" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/git/" rel="tag">git</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/github/" rel="tag">github</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-E9流程表单前端接口API" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/wzg6662.github.io/2020/11/09/E9%E6%B5%81%E7%A8%8B%E8%A1%A8%E5%8D%95%E5%89%8D%E7%AB%AF%E6%8E%A5%E5%8F%A3API/" class="article-date">
+  <time datetime="2020-11-08T16:00:00.000Z" itemprop="datePublished">2020-11-09</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/wzg6662.github.io/2020/11/09/E9%E6%B5%81%E7%A8%8B%E8%A1%A8%E5%8D%95%E5%89%8D%E7%AB%AF%E6%8E%A5%E5%8F%A3API/">E9流程表单前端接口API</a>
+    </h1>
+  
+
+      </header>
     
     <div class="article-entry" itemprop="articleBody">
       
@@ -830,171 +1003,10 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://wzg6662.github.io/2021/03/09/E9%E6%B5%81%E7%A8%8B%E8%A1%A8%E5%8D%95%E5%89%8D%E7%AB%AF%E6%8E%A5%E5%8F%A3API/" data-id="ckm1dkntc00002wp4dgdwe9pl" class="article-share-link">Share</a>
+      <a data-url="https://wzg6662.github.io/2020/11/09/E9%E6%B5%81%E7%A8%8B%E8%A1%A8%E5%8D%95%E5%89%8D%E7%AB%AF%E6%8E%A5%E5%8F%A3API/" data-id="ckm1dkntc00002wp4dgdwe9pl" class="article-share-link">Share</a>
       
       
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-设计模式 - 单例模式" class="article article-type-post" itemscope itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" class="article-date">
-  <time datetime="2021-03-03T15:18:23.000Z" itemprop="datePublished">2021-03-03</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/">设计模式 - 单例模式</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p><strong>开篇我就给大家一个思考题</strong>：为什么不用静态方法而用单例模式？ </p>
-<p>首先给单例下一个定义：<strong>在当前进程中，通过单例模式创建的类有且只有一个实例</strong>。</p>
-<p>单例有如下几个特点：</p>
-<ul>
-<li>在Java应用中，单例模式能保证在一个JVM中，该对象只有一个实例存在</li>
-<li>构造器必须是私有的，外部类无法通过调用构造器方法创建该实例</li>
-<li>没有公开的set方法，外部类无法调用set方法创建该实例</li>
-<li>提供一个公开的get方法获取唯一的这个实例</li>
-</ul>
-<p>那单例模式有什么好处呢？</p>
-<ul>
-<li>某些类创建比较频繁，对于一些大型的对象，这是一笔很大的系统开销</li>
-<li>省去了new操作符，降低了系统内存的使用频率，减轻GC压力</li>
-<li>系统中某些类，如spring里的controller，控制着处理流程，如果该类可以创建多个的话，系统完全乱了</li>
-<li>避免了对资源的重复占用</li>
-</ul>
-<p>好了，单例模式的定义也清楚了，好处也了解了，先看一个饿汉式的写法</p>
-<h2 id="饿汉式"><a href="#饿汉式" class="headerlink" title="饿汉式"></a>饿汉式</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 创建一个实例对象</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>之所以叫饿汉式大家可以理解为他饿，他想提前把对象new出来，这样别人哪怕是<strong>第一次</strong>获取这个类对象的时候直接就存在这个类了，省去了创建类这一步的开销。</p>
-<p>等我介绍完懒汉之后，对比一下大家就知道两者的区别，以及各自适用在什么场景了。</p>
-<h2 id="懒汉式"><a href="#懒汉式" class="headerlink" title="懒汉式"></a>懒汉式</h2><p>线程不安全的模式</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance;  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span> <span class="params">()</span></span>&#123;&#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    <span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;  </span><br><span class="line">        instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">    <span class="keyword">return</span> instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>懒汉式大家可以理解为他懒，别人<strong>第一次</strong>调用的时候他发现自己的实例是空的，然后去初始化了，再赋值，后面的调用就和饿汉没区别了。</p>
-<p>懒汉和饿汉的对比：大家可以发现两者的区别基本上就是第一次创作时候的开销问题，以及线程安全问题（线程不安全模式的懒汉）。</p>
-<p>那有了这个对比，那他们的场景好理解了，在很多电商场景，如果这个数据是经常访问的热点数据，那我就可以在系统启动的时候使用饿汉模式提前加载（类似缓存的预热）这样哪怕是第一个用户调用都不会存在创建开销，而且调用频繁也不存在内存浪费了。</p>
-<p>而懒汉式呢我们可以用在不怎么热的地方，比如那个数据你不确定很长一段时间是不是有人会调用，那就用懒汉，如果你使用了饿汉，但是过了几个月还没人调用，提前加载的类在内存中是有资源浪费的。</p>
-<h2 id="线程安全问题"><a href="#线程安全问题" class="headerlink" title="线程安全问题"></a>线程安全问题</h2><p>上面的懒汉我是故意没加锁的，大家肯定都知道懒汉的线程安全问题的吧？ </p>
-<p>在运行过程中可能存在这么一种情况：多个线程去调用getInstance方法来获取Singleton的实例，那么就有可能发生这样一种情况，当第一个线程在执行if（instance==null）时，此时instance是为null的进入语句。</p>
-<p>在还没有执行instance=new Singleton()时（此时instance是为null的）第二个线程也进入了if(instance==null)这个语句，因为之前进入这个语句的线程中还没有执行instance=new Singleton()，所以它会执行instance = new Singleton()来实例化Singleton对象，因为第二个线程也进入了if语句所以它会实例化Singleton对象。</p>
-<p>这样就导致了实例化了两个Singleton对象，那怎么解决？</p>
-<p>简单粗暴，加锁就好了，这是加锁之后的代码。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 私有构造方法，防止被实例化</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 静态get方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这是一种典型的时间换空间的写法，不管三七二十一，每次创建实例时先锁起来，再进行判断，严重降低了系统的处理速度。</p>
-<p>有没有更好的处理方式呢？</p>
-<p>有，通过双检锁做两次判断，代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>将synchronized关键字加在了内部，也就是说当调用的时候是不需要加锁的，只有在instance为null，并创建对象的时候才需要加锁，性能有一定的提升。</p>
-<p>但是，这样就没有问题了吗？</p>
-<p>看下面的情况：在Java指令中创建对象和赋值操作是分开进行的，也就是说instance = new Singleton();语句是分两步执行的。</p>
-<p>但是JVM并不保证这两个操作的先后顺序，也就是说有可能JVM会为新的Singleton实例分配空间，然后直接赋值给instance成员，然后再去初始化这个Singleton实例。</p>
-<p>这样就可能出错了，我们以A、B两个线程为例：</p>
-<ol>
-<li><p>A、B线程同时进入了第一个if判断</p>
-</li>
-<li><p>A首先进入synchronized块，由于instance为null，所以它执行instance = new Singleton();</p>
-</li>
-<li><p>由于JVM内部的优化机制，JVM先画出了一些分配给Singleton实例的空白内存，并赋值给instance成员（注意此时JVM没有开始初始化这个实例），然后A离开了synchronized块。</p>
-</li>
-<li><p>B进入synchronized块，由于instance此时不是null，因此它马上离开了synchronized块并将结果返回给调用该方法的程序。</p>
-</li>
-<li><p>此时B线程打算使用Singleton实例，却发现它没有被初始化，于是错误发生了。</p>
-</li>
-</ol>
-<p>加上volatile修饰Singleton，再做一次优化：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">null</span>;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="comment">//先检查实例是否存在，如果不存在才进入下面的同步块</span></span><br><span class="line">        <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="comment">//同步块，线程安全的创建实例</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="comment">//再次检查实例是否存在，如果不存在才真正的创建实例</span></span><br><span class="line">                <span class="keyword">if</span>(instance == <span class="keyword">null</span>)&#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>**通过volatile修饰的变量，不会被线程本地缓存，所有线程对该对象的读写都会第一时间同步到主内存，从而保证多个线程间该对象的准确性 **</p>
-<p><strong>volatile的作用</strong></p>
-<ul>
-<li>防止指令重排序，因为instance = new Singleton()不是原子操作</li>
-<li>保证内存可见</li>
-</ul>
-<p>这个是比较完美的写法了，这种方式能够安全的创建唯一的一个实例，又不会对性能有太大的影响。</p>
-<p>但是由于volatile关键字可能会屏蔽掉虚拟机中一些必要的代码优化，所以运行效率并不是很高，还有更优的写法吗？</p>
-<p>通过静态内部类</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 私有构造方法，防止被实例化 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">Singleton</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 此处使用一个内部类来维护单例 */</span>  </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">SingletonFactory</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance = <span class="keyword">new</span> Singleton();  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 获取实例 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> SingletonFactory.instance;  </span><br><span class="line">    &#125;  </span><br><span class="line">  </span><br><span class="line">    <span class="comment">/* 如果该对象被用于序列化，可以保证对象在序列化前后保持一致 */</span>  </span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">readResolve</span><span class="params">()</span> </span>&#123;  </span><br><span class="line">        <span class="keyword">return</span> getInstance();  </span><br><span class="line">    &#125;  </span><br><span class="line">&#125;  </span><br></pre></td></tr></table></figure>
-
-<p>使用内部类来维护单例的实现，JVM内部的机制能够保证当一个类被加载的时候，这个类的加载过程是线程互斥的。</p>
-<p>这样当我们第一次调用getInstance的时候，JVM能够帮我们保证instance只被创建一次，并且会保证把赋值给instance的内存初始化完毕， 这样我们就不用担心上面的问题。</p>
-<p>同时该方法也只会在第一次调用的时候使用互斥机制，这样就解决了低性能问题。这样我们暂时总结一个完美的单例模式。</p>
-<p>还有更完美的写法吗，通过枚举：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">public enum Singleton &#123;</span><br><span class="line">    &#x2F;**</span><br><span class="line">     * 定义一个枚举的元素，它就代表了Singleton的一个实例。</span><br><span class="line">     *&#x2F;</span><br><span class="line">    Instance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>使用枚举来实现单实例控制会更加简洁，而且JVM从根本上提供保障，绝对防止多次实例化，是更简洁、高效、安全的实现单例的方式。</p>
-<p>最后这种也是我最青睐的一种（代码少）。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>最后大家应该都知道单例模式的写法了，也知道优劣势和使用场景了，那开头的那个问题大家心里有答案了么？</p>
-<p>什么？连问题都忘了？问题：为什么不用静态方法而用单例模式？</p>
-<p>两者其实都能实现我们加载的最终目的，但是他们一个是基于对象，一个是面向对象的，就像我们不面向对象也能解决问题一样，面向对象的代码提供一个更好的编程思想。</p>
-<p>如果一个方法和他所在类的实例对象无关，那么它就应该是静态的，反之他就应该是非静态的。如果我们确实应该使用非静态的方法，但是在创建类时又确实只需要维护一份实例时，就需要用单例模式了。</p>
-<p>我们的电商系统中就有很多类，有很多配置和属性，这些配置和属性是一定存在了，又是公共的，同时需要在整个生命周期中都存在，所以只需要一份就行，这个时候如果需要我再需要的时候new一个，再给他分配值，显然是浪费内存并且再赋值没什么意义。</p>
-<p>所以我们用单例模式或静态方法去维持一份这些值有且只有这一份值，但此时这些配置和属性又是通过面向对象的编码方式得到的，我们就应该使用单例模式，或者不是面向对象的，但他本身的属性应该是面对对象的，我们使用静态方法虽然能同样解决问题，但是最好的解决方案也应该是使用单例模式。</p>
-<p>转自公众号，三太子敖丙<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/dW0L-PoBeTFHhD29HJO0BQ">https://mp.weixin.qq.com/s/dW0L-PoBeTFHhD29HJO0BQ</a></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" data-id="cklugg0w200001pp4hbc867mo" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" rel="tag">单例模式</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-github-国内镜像" class="article article-type-post" itemscope itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/wzg6662.github.io/2021/03/03/github-%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/" class="article-date">
-  <time datetime="2021-03-03T03:23:22.000Z" itemprop="datePublished">2021-03-03</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/wzg6662.github.io/2021/03/03/github-%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/">github 国内镜像</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h2 id=""><a href="#" class="headerlink" title=""></a></h2><p><a target="_blank" rel="noopener" href="https://github.com.cnpmjs.org/">github.com.cnpmjs.org</a>（亲测这个访问速度较快）和<a target="_blank" rel="noopener" href="https://git.sdut.me/">git.sdut.me</a></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://wzg6662.github.io/2021/03/03/github-%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/" data-id="ckluan1z20000xzp4a6hn08ci" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/git/" rel="tag">git</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/github/" rel="tag">github</a></li></ul>
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/API/" rel="tag">API</a></li></ul>
 
     </footer>
   </div>
@@ -1390,6 +1402,166 @@
 
 
   
+    <article id="post-Java之StringUtils的常用方法" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/wzg6662.github.io/2020/07/02/Java%E4%B9%8BStringUtils%E7%9A%84%E5%B8%B8%E7%94%A8%E6%96%B9%E6%B3%95/" class="article-date">
+  <time datetime="2020-07-01T16:00:00.000Z" itemprop="datePublished">2020-07-02</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/wzg6662.github.io/2020/07/02/Java%E4%B9%8BStringUtils%E7%9A%84%E5%B8%B8%E7%94%A8%E6%96%B9%E6%B3%95/">Java之StringUtils的常用方法</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="Java之StringUtils的常用方法"><a href="#Java之StringUtils的常用方法" class="headerlink" title="Java之StringUtils的常用方法"></a>Java之StringUtils的常用方法</h1><p>StringUtils 方法的操作对象是 Java.lang.String 类型的对象，是 JDK 提供的 String 类型操作方法的补充，并且是 null 安全的(即如果输入参数 String 为 null 则不会抛出 NullPointerException ，而是做了相应处理，例如，如果输入为 null 则返回也是 null 等，具体可以查看源代码)。</p>
+<p>除了构造器，StringUtils 中一共有130多个方法，并且都是 static 的，所以我们可以这样调用 StringUtils.xxx()</p>
+<p>下面分别对一些常用方法做简要介绍：</p>
+<h2 id="1-public-static-boolean-isEmpty-String-str"><a href="#1-public-static-boolean-isEmpty-String-str" class="headerlink" title="1.public static boolean isEmpty(String str)"></a>1.public static boolean isEmpty(String str)</h2><p>判断某字符串是否为空，为空的标准是 str==null 或 str.length()==0<br>下面是示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.isEmpty(<span class="keyword">null</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isEmpty(<span class="string">&quot;&quot;</span>) = <span class="keyword">true</span> </span><br><span class="line">StringUtils.isEmpty(<span class="string">&quot; &quot;</span>) = <span class="keyword">false</span> <span class="comment">//注意在 StringUtils 中空格作非空处理</span></span><br><span class="line">StringUtils.isEmpty(<span class="string">&quot;   &quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isEmpty(<span class="string">&quot;bob&quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isEmpty(<span class="string">&quot; bob &quot;</span>) = <span class="keyword">false</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="2-public-static-boolean-isNotEmpty-String-str"><a href="#2-public-static-boolean-isNotEmpty-String-str" class="headerlink" title="2.public static boolean isNotEmpty(String str)"></a>2.public static boolean isNotEmpty(String str)</h2><p>判断某字符串是否非空，等于 !isEmpty(String str)<br>下面是示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.isNotEmpty(<span class="keyword">null</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isNotEmpty(<span class="string">&quot;&quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isNotEmpty(<span class="string">&quot; &quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isNotEmpty(<span class="string">&quot;         &quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isNotEmpty(<span class="string">&quot;bob&quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isNotEmpty(<span class="string">&quot; bob &quot;</span>) = <span class="keyword">true</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="3-public-static-boolean-isBlank-String-str"><a href="#3-public-static-boolean-isBlank-String-str" class="headerlink" title="3.public static boolean isBlank(String str)"></a>3.public static boolean isBlank(String str)</h2><p>判断某字符串是否为空或长度为0或由空白符(whitespace) 构成<br>下面是示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.isBlank(<span class="keyword">null</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isBlank(<span class="string">&quot;&quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isBlank(<span class="string">&quot; &quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isBlank(<span class="string">&quot;        &quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isBlank(<span class="string">&quot;\t \n \f \r&quot;</span>) = <span class="keyword">true</span>   <span class="comment">//对于制表符、换行符、换页符和回车符</span></span><br><span class="line"></span><br><span class="line">StringUtils.isBlank()   <span class="comment">//均识为空白符</span></span><br><span class="line">StringUtils.isBlank(<span class="string">&quot;\b&quot;</span>) = <span class="keyword">false</span>   <span class="comment">//&quot;\b&quot;为单词边界符</span></span><br><span class="line">StringUtils.isBlank(<span class="string">&quot;bob&quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isBlank(<span class="string">&quot; bob &quot;</span>) = <span class="keyword">false</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="4-public-static-boolean-isNotBlank-String-str"><a href="#4-public-static-boolean-isNotBlank-String-str" class="headerlink" title="4.public static boolean isNotBlank(String str)"></a>4.public static boolean isNotBlank(String str)</h2><p>判断某字符串是否不为空且长度不为0且不由空白符(whitespace) 构成，等于 !isBlank(String str)<br>下面是示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.isNotBlank(<span class="keyword">null</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isNotBlank(<span class="string">&quot;&quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isNotBlank(<span class="string">&quot; &quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isNotBlank(<span class="string">&quot;         &quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isNotBlank(<span class="string">&quot;\t \n \f \r&quot;</span>) = <span class="keyword">false</span></span><br><span class="line">StringUtils.isNotBlank(<span class="string">&quot;\b&quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isNotBlank(<span class="string">&quot;bob&quot;</span>) = <span class="keyword">true</span></span><br><span class="line">StringUtils.isNotBlank(<span class="string">&quot; bob &quot;</span>) = <span class="keyword">true</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="5-public-static-String-trim-String-str"><a href="#5-public-static-String-trim-String-str" class="headerlink" title="5.public static String trim(String str)"></a>5.public static String trim(String str)</h2><p>去掉字符串两端的控制符(control characters, char &lt;= 32) , 如果输入为 null 则返回null<br>下面是示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.trim(<span class="keyword">null</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.trim(<span class="string">&quot;&quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.trim(<span class="string">&quot; &quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.trim(<span class="string">&quot; \b \t \n \f \r    &quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.trim(<span class="string">&quot;     \n\tss   \b&quot;</span>) = <span class="string">&quot;ss&quot;</span></span><br><span class="line">StringUtils.trim(<span class="string">&quot; d   d dd     &quot;</span>) = <span class="string">&quot;d   d dd&quot;</span></span><br><span class="line">StringUtils.trim(<span class="string">&quot;dd     &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br><span class="line">StringUtils.trim(<span class="string">&quot;     dd       &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="6-public-static-String-trimToNull-String-str"><a href="#6-public-static-String-trimToNull-String-str" class="headerlink" title="6.public static String trimToNull(String str)"></a>6.public static String trimToNull(String str)</h2><p>去掉字符串两端的控制符(control characters, char &lt;= 32) ,如果变为 null 或””，则返回 null<br>下面是示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.trimToNull(<span class="keyword">null</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.trimToNull(<span class="string">&quot;&quot;</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.trimToNull(<span class="string">&quot; &quot;</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.trimToNull(<span class="string">&quot;     \b \t \n \f \r    &quot;</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.trimToNull(<span class="string">&quot;     \n\tss   \b&quot;</span>) = <span class="string">&quot;ss&quot;</span></span><br><span class="line">StringUtils.trimToNull(<span class="string">&quot; d   d dd     &quot;</span>) = <span class="string">&quot;d   d dd&quot;</span></span><br><span class="line">StringUtils.trimToNull(<span class="string">&quot;dd     &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br><span class="line">StringUtils.trimToNull(<span class="string">&quot;     dd       &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="7-public-static-String-trimToEmpty-String-str"><a href="#7-public-static-String-trimToEmpty-String-str" class="headerlink" title="7.public static String trimToEmpty(String str)"></a>7.public static String trimToEmpty(String str)</h2><p>去掉字符串两端的控制符(control characters, char &lt;= 32) ,如果变为 null 或 “” ，则返回 “”<br>下面是示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.trimToEmpty(<span class="keyword">null</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.trimToEmpty(<span class="string">&quot;&quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.trimToEmpty(<span class="string">&quot; &quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.trimToEmpty(<span class="string">&quot;     \b \t \n \f \r    &quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.trimToEmpty(<span class="string">&quot;     \n\tss   \b&quot;</span>) = <span class="string">&quot;ss&quot;</span></span><br><span class="line">StringUtils.trimToEmpty(<span class="string">&quot; d   d dd     &quot;</span>) = <span class="string">&quot;d   d dd&quot;</span></span><br><span class="line">StringUtils.trimToEmpty(<span class="string">&quot;dd     &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br><span class="line">StringUtils.trimToEmpty(<span class="string">&quot;     dd       &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="8-public-static-String-strip-String-str"><a href="#8-public-static-String-strip-String-str" class="headerlink" title="8.public static String strip(String str)"></a>8.public static String strip(String str)</h2><p>去掉字符串两端的空白符(whitespace) ，如果输入为 null 则返回 null<br>下面是示例(注意和 trim() 的区别)：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.strip(<span class="keyword">null</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.strip(<span class="string">&quot;&quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.strip(<span class="string">&quot; &quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.strip(<span class="string">&quot;     \b \t \n \f \r    &quot;</span>) = <span class="string">&quot;\b&quot;</span></span><br><span class="line">StringUtils.strip(<span class="string">&quot;     \n\tss   \b&quot;</span>) = <span class="string">&quot;ss   \b&quot;</span></span><br><span class="line">StringUtils.strip(<span class="string">&quot; d   d dd     &quot;</span>) = <span class="string">&quot;d   d dd&quot;</span></span><br><span class="line">StringUtils.strip(<span class="string">&quot;dd     &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br><span class="line">StringUtils.strip(<span class="string">&quot;     dd       &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="9-public-static-String-stripToNull-String-str"><a href="#9-public-static-String-stripToNull-String-str" class="headerlink" title="9.public static String stripToNull(String str)"></a>9.public static String stripToNull(String str)</h2><p>去掉字符串两端的空白符(whitespace) ，如果变为 null 或””，则返回 null<br>下面是示例(注意和 trimToNull() 的区别)：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.stripToNull(<span class="keyword">null</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;&quot;</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot; &quot;</span>) = <span class="keyword">null</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;     \b \t \n \f \r    &quot;</span>) = <span class="string">&quot;\b&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;     \n\tss   \b&quot;</span>) = <span class="string">&quot;ss   \b&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot; d   d dd     &quot;</span>) = <span class="string">&quot;d   d dd&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;dd     &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;     dd       &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="10-public-static-String-stripToEmpty-String-str"><a href="#10-public-static-String-stripToEmpty-String-str" class="headerlink" title="10.public static String stripToEmpty(String str)"></a>10.public static String stripToEmpty(String str)</h2><p>去掉字符串两端的空白符(whitespace) ，如果变为 null 或”” ，则返回””<br>下面是示例(注意和 trimToEmpty() 的区别)：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.stripToNull(<span class="keyword">null</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;&quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot; &quot;</span>) = <span class="string">&quot;&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;     \b \t \n \f \r    &quot;</span>) = <span class="string">&quot;\b&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;     \n\tss   \b&quot;</span>) = <span class="string">&quot;ss   \b&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot; d   d dd     &quot;</span>) = <span class="string">&quot;d   d dd&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;dd     &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br><span class="line">StringUtils.stripToNull(<span class="string">&quot;     dd       &quot;</span>) = <span class="string">&quot;dd&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>以下方法只介绍其功能，不再举例：</p>
+<h2 id="11-public-static-String-strip-String-str-String-stripChars"><a href="#11-public-static-String-strip-String-str-String-stripChars" class="headerlink" title="11.public static String strip(String str, String stripChars)"></a>11.public static String strip(String str, String stripChars)</h2><p>  去掉 str 两端的在 stripChars 中的字符。<br>  如果 str 为 null 或等于”” ，则返回它本身；<br>  如果 stripChars 为 null 或”” ，则返回 strip(String str) 。</p>
+<h2 id="12-public-static-String-stripStart-String-str-String-stripChars"><a href="#12-public-static-String-stripStart-String-str-String-stripChars" class="headerlink" title="12.public static String stripStart(String str, String stripChars)"></a>12.public static String stripStart(String str, String stripChars)</h2><p>和11相似，去掉 str 前端的在 stripChars 中的字符。</p>
+<h2 id="13-public-static-String-stripEnd-String-str-String-stripChars"><a href="#13-public-static-String-stripEnd-String-str-String-stripChars" class="headerlink" title="13.public static String stripEnd(String str, String stripChars)"></a>13.public static String stripEnd(String str, String stripChars)</h2><p>和11相似，去掉 str 末端的在 stripChars 中的字符。</p>
+<h2 id="14-public-static-String-stripAll-String-strs"><a href="#14-public-static-String-stripAll-String-strs" class="headerlink" title="14.public static String[] stripAll(String[] strs)"></a>14.public static String[] stripAll(String[] strs)</h2><p>对字符串数组中的每个字符串进行 strip(String str) ，然后返回。<br>如果 strs 为 null 或 strs 长度为0，则返回 strs 本身</p>
+<h2 id="15-public-static-String-stripAll-String-strs-String-stripChars"><a href="#15-public-static-String-stripAll-String-strs-String-stripChars" class="headerlink" title="15.public static String[] stripAll(String[] strs, String stripChars)"></a>15.public static String[] stripAll(String[] strs, String stripChars)</h2><p>对字符串数组中的每个字符串进行 strip(String str, String stripChars) ，然后返回。<br>如果 strs 为 null 或 strs 长度为0，则返回 strs 本身</p>
+<h2 id="16-public-static-boolean-equals-String-str1-String-str2"><a href="#16-public-static-boolean-equals-String-str1-String-str2" class="headerlink" title="16.public static boolean equals(String str1, String str2)"></a>16.public static boolean equals(String str1, String str2)</h2><p>比较两个字符串是否相等，如果两个均为空则也认为相等。</p>
+<h2 id="17-public-static-boolean-equalsIgnoreCase-String-str1-String-str2"><a href="#17-public-static-boolean-equalsIgnoreCase-String-str1-String-str2" class="headerlink" title="17.public static boolean equalsIgnoreCase(String str1, String str2)"></a>17.public static boolean equalsIgnoreCase(String str1, String str2)</h2><p>比较两个字符串是否相等，不区分大小写，如果两个均为空则也认为相等。</p>
+<h2 id="18-public-static-int-indexOf-String-str-char-searchChar"><a href="#18-public-static-int-indexOf-String-str-char-searchChar" class="headerlink" title="18.public static int indexOf(String str, char searchChar)"></a>18.public static int indexOf(String str, char searchChar)</h2><p>返回字符 searchChar 在字符串 str 中第一次出现的位置。<br>如果 searchChar 没有在 str 中出现则返回-1，<br>如果 str 为 null 或 “” ，则也返回-1</p>
+<h2 id="19-public-static-int-indexOf-String-str-char-searchChar-int-startPos"><a href="#19-public-static-int-indexOf-String-str-char-searchChar-int-startPos" class="headerlink" title="19.public static int indexOf(String str, char searchChar, int startPos)"></a>19.public static int indexOf(String str, char searchChar, int startPos)</h2><p>返回字符 searchChar 从 startPos 开始在字符串 str 中第一次出现的位置。<br>如果从 startPos 开始 searchChar 没有在 str 中出现则返回-1，<br>如果 str 为 null 或 “” ，则也返回-1</p>
+<h2 id="20-public-static-int-indexOf-String-str-String-searchStr"><a href="#20-public-static-int-indexOf-String-str-String-searchStr" class="headerlink" title="20.public static int indexOf(String str, String searchStr)"></a>20.public static int indexOf(String str, String searchStr)</h2><p>返回字符串 searchStr 在字符串 str 中第一次出现的位置。<br>如果 str 为 null 或 searchStr 为 null 则返回-1，<br>如果 searchStr 为 “” ,且 str 为不为 null ，则返回0，<br>如果 searchStr 不在 str 中，则返回-1</p>
+<h2 id="21-public-static-int-ordinalIndexOf-String-str-String-searchStr-int-ordinal"><a href="#21-public-static-int-ordinalIndexOf-String-str-String-searchStr-int-ordinal" class="headerlink" title="21.public static int ordinalIndexOf(String str, String searchStr, int ordinal)"></a>21.public static int ordinalIndexOf(String str, String searchStr, int ordinal)</h2><p>返回字符串 searchStr 在字符串 str 中第 ordinal 次出现的位置。<br>如果 str=null 或 searchStr=null 或 ordinal&lt;=0 则返回-1<br>举例(*代表任意字符串)：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.ordinalIndexOf(<span class="keyword">null</span>, *, *) = -<span class="number">1</span></span><br><span class="line">StringUtils.ordinalIndexOf(*, <span class="keyword">null</span>, *) = -<span class="number">1</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, *) = <span class="number">0</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="number">1</span>) = <span class="number">0</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="number">2</span>) = <span class="number">1</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="number">1</span>) = <span class="number">2</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="number">2</span>) = <span class="number">5</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;ab&quot;</span>, <span class="number">1</span>) = <span class="number">1</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;ab&quot;</span>, <span class="number">2</span>) = <span class="number">4</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;bc&quot;</span>, <span class="number">1</span>) = -<span class="number">1</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">1</span>) = <span class="number">0</span></span><br><span class="line">StringUtils.ordinalIndexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">2</span>) = <span class="number">0</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="22-public-static-int-indexOf-String-str-String-searchStr-int-startPos"><a href="#22-public-static-int-indexOf-String-str-String-searchStr-int-startPos" class="headerlink" title="22.public static int indexOf(String str, String searchStr, int startPos)"></a>22.public static int indexOf(String str, String searchStr, int startPos)</h2><p>返回字符串 searchStr 从 startPos 开始在字符串 str 中第一次出现的位置。<br>举例(*代表任意字符串)：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">StringUtils.indexOf(<span class="keyword">null</span>, *, *) = -<span class="number">1</span></span><br><span class="line">StringUtils.indexOf(*, <span class="keyword">null</span>, *) = -<span class="number">1</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">0</span>) = <span class="number">0</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="number">0</span>) = <span class="number">0</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="number">0</span>) = <span class="number">2</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;ab&quot;</span>, <span class="number">0</span>) = <span class="number">1</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="number">3</span>) = <span class="number">5</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="number">9</span>) = -<span class="number">1</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;b&quot;</span>, -<span class="number">1</span>) = <span class="number">2</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;aabaabaa&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">2</span>) = <span class="number">2</span></span><br><span class="line">StringUtils.indexOf(<span class="string">&quot;abc&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">9</span>) = <span class="number">3</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="23-public-static-int-lastIndexOf-String-str-char-searchChar"><a href="#23-public-static-int-lastIndexOf-String-str-char-searchChar" class="headerlink" title="23.public static int lastIndexOf(String str, char searchChar)"></a>23.public static int lastIndexOf(String str, char searchChar)</h2><p>基本原理同18</p>
+<h2 id="24-public-static-int-lastIndexOf-String-str-char-searchChar-int-startPos"><a href="#24-public-static-int-lastIndexOf-String-str-char-searchChar-int-startPos" class="headerlink" title="24.public static int lastIndexOf(String str, char searchChar, int startPos)"></a>24.public static int lastIndexOf(String str, char searchChar, int startPos)</h2><p>基本原理同19</p>
+<h2 id="25-public-static-int-lastIndexOf-String-str-String-searchStr"><a href="#25-public-static-int-lastIndexOf-String-str-String-searchStr" class="headerlink" title="25.public static int lastIndexOf(String str, String searchStr)"></a>25.public static int lastIndexOf(String str, String searchStr)</h2><p>基本原理同20</p>
+<h2 id="26-public-static-int-lastIndexOf-String-str-String-searchStr-int-startPos"><a href="#26-public-static-int-lastIndexOf-String-str-String-searchStr-int-startPos" class="headerlink" title="26.public static int lastIndexOf(String str, String searchStr, int startPos)"></a>26.public static int lastIndexOf(String str, String searchStr, int startPos)</h2><p>————————————————<br>原文链接：<a target="_blank" rel="noopener" href="https://blog.csdn.net/weixin_42290280/article/details/82591161">https://blog.csdn.net/weixin_42290280/article/details/82591161</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://wzg6662.github.io/2020/07/02/Java%E4%B9%8BStringUtils%E7%9A%84%E5%B8%B8%E7%94%A8%E6%96%B9%E6%B3%95/" data-id="ckmhi4dbd0000ppp4d58m0cd0" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/String/" rel="tag">String</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E5%B7%A5%E5%85%B7/" rel="tag">工具</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Linux安装Maven并修改阿里镜像源" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/wzg6662.github.io/2019/09/20/Linux%E5%AE%89%E8%A3%85Maven%E5%B9%B6%E4%BF%AE%E6%94%B9%E9%98%BF%E9%87%8C%E9%95%9C%E5%83%8F%E6%BA%90/" class="article-date">
+  <time datetime="2019-09-19T16:00:00.000Z" itemprop="datePublished">2019-09-20</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/wzg6662.github.io/2019/09/20/Linux%E5%AE%89%E8%A3%85Maven%E5%B9%B6%E4%BF%AE%E6%94%B9%E9%98%BF%E9%87%8C%E9%95%9C%E5%83%8F%E6%BA%90/">Linux安装Maven并修改阿里镜像源</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="下载"><a href="#下载" class="headerlink" title="下载"></a>下载</h2><p>方法1：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd /opt</span><br><span class="line">wget [http://mirror.bit.edu.cn/apache/maven/maven-3/3.6.0/source/apache-maven-3.6.0-src.tar.gz](http://mirror.bit.edu.cn/apache/maven/maven-3/3.6.0/source/apache-maven-3.6.0-src.tar.gz)</span><br></pre></td></tr></table></figure>
+
+<p>方法2：</p>
+<p> <strong>下载压缩包:</strong></p>
+<p>官网地址: <a target="_blank" rel="noopener" href="http://maven.apache.org/download.cgi">http://maven.apache.org/download.cgi</a></p>
+<p><img src="https://img-blog.csdnimg.cn/20190730112439444.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM4MjcwMTA2,size_16,color_FFFFFF,t_70" alt="img"></p>
+<p>或者百度网盘链接：<a target="_blank" rel="noopener" href="https://pan.baidu.com/s/10C3IDcnohJWHbUA-wzBiaA">https://pan.baidu.com/s/10C3IDcnohJWHbUA-wzBiaA</a><br>提取码：2x9h</p>
+<h2 id="解压"><a href="#解压" class="headerlink" title="解压"></a>解压</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tar -zxvf apache-maven-3.6.0-src.tar.gz</span><br></pre></td></tr></table></figure>
+
+<h2 id="移动、重命令"><a href="#移动、重命令" class="headerlink" title="移动、重命令"></a>移动、重命令</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mv apache-maven-3.6.0 /usr/local/maven</span><br></pre></td></tr></table></figure>
+
+<h2 id="环境变量"><a href="#环境变量" class="headerlink" title="环境变量"></a>环境变量</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/profile</span><br></pre></td></tr></table></figure>
+
+
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">export M2_HOME=/usr/local/maven</span><br><span class="line">export PATH=$PATH:$JAVA_HOME/bin:$M2_HOME/bin</span><br></pre></td></tr></table></figure>
+
+<h2 id="刷新环境变量"><a href="#刷新环境变量" class="headerlink" title="刷新环境变量"></a>刷新环境变量</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">source /etc/profile</span><br></pre></td></tr></table></figure>
+
+<h2 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mvn -v</span><br></pre></td></tr></table></figure>
+
+<h2 id="修改镜像源"><a href="#修改镜像源" class="headerlink" title="修改镜像源"></a>修改镜像源</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi maven/conf/setting.xml</span><br></pre></td></tr></table></figure>
+
+
+
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">mirrors</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">mirror</span>&gt;</span> </span><br><span class="line">      <span class="tag">&lt;<span class="name">id</span>&gt;</span>alimaven<span class="tag">&lt;/<span class="name">id</span>&gt;</span> </span><br><span class="line">      <span class="tag">&lt;<span class="name">name</span>&gt;</span>aliyun maven<span class="tag">&lt;/<span class="name">name</span>&gt;</span>   </span><br><span class="line">      <span class="tag">&lt;<span class="name">url</span>&gt;</span>http://maven.aliyun.com/nexus/content/groups/public/<span class="tag">&lt;/<span class="name">url</span>&gt;</span> </span><br><span class="line">      <span class="tag">&lt;<span class="name">mirrorOf</span>&gt;</span>central<span class="tag">&lt;/<span class="name">mirrorOf</span>&gt;</span> </span><br><span class="line">   <span class="tag">&lt;/<span class="name">mirror</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">mirrors</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://wzg6662.github.io/2019/09/20/Linux%E5%AE%89%E8%A3%85Maven%E5%B9%B6%E4%BF%AE%E6%94%B9%E9%98%BF%E9%87%8C%E9%95%9C%E5%83%8F%E6%BA%90/" data-id="ckmhi4dbh0001ppp411085z73" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/linux/" rel="tag">linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/maven/" rel="tag">maven</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E9%98%BF%E9%87%8C%E9%95%9C%E5%83%8F/" rel="tag">阿里镜像</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
     <article id="post-搭载hexo + github部署" class="article article-type-post" itemscope itemprop="blogPost">
   <div class="article-meta">
     <a href="/wzg6662.github.io/2019/03/03/%E6%90%AD%E8%BD%BDhexo%20+%20github%E9%83%A8%E7%BD%B2/" class="article-date">
@@ -1604,216 +1776,12 @@
 
 
   
-    <article id="post-Typora快捷键" class="article article-type-post" itemscope itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/wzg6662.github.io/2019/03/03/Typora%E5%BF%AB%E6%8D%B7%E9%94%AE/" class="article-date">
-  <time datetime="2019-03-03T03:23:22.000Z" itemprop="datePublished">2019-03-03</time>
-</a>
+
+
+  <nav id="page-nav">
     
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/wzg6662.github.io/2019/03/03/Typora%E5%BF%AB%E6%8D%B7%E9%94%AE/">Typora快捷键</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h2 id="windows快捷键："><a href="#windows快捷键：" class="headerlink" title="windows快捷键："></a>windows快捷键：</h2><ul>
-<li>无序列表：输入-之后输入空格</li>
-<li>有序列表：输入数字+“.”之后输入空格</li>
-<li>任务列表：-[空格]空格 文字</li>
-<li>标题：ctrl+数字</li>
-<li>表格：ctrl+t</li>
-<li>生成目录：<code>[TOC]</code>按回车</li>
-<li>选中一整行：ctrl+l</li>
-<li>选中单词：ctrl+d</li>
-<li>选中相同格式的文字：ctrl+e</li>
-<li>跳转到文章开头：ctrl+home</li>
-<li>跳转到文章结尾：ctrl+end</li>
-<li>搜索：ctrl+f</li>
-<li>替换：ctrl+h</li>
-<li>引用：输入&gt;之后输入空格</li>
-<li>代码块：ctrl+alt+f</li>
-<li>加粗：ctrl+b</li>
-<li>倾斜：ctrl+i</li>
-<li>下划线：ctrl+u</li>
-<li>删除线：alt+shift+5</li>
-<li>插入图片：直接拖动到指定位置即可或者ctrl+shift+i</li>
-<li>插入链接：ctrl + k</li>
-</ul>
-<h2 id="Mac中的快捷键："><a href="#Mac中的快捷键：" class="headerlink" title="Mac中的快捷键："></a>Mac中的快捷键：</h2><ol>
-<li>最大标题：command + 1 或者：#</li>
-<li>大标题：command + 2 或者：##</li>
-<li>标准标题：command + 3 或者：###</li>
-<li>中标题：command + 4 或者：####</li>
-<li>小标题：command + 5 或者：#####</li>
-<li>插入表格：command + T</li>
-<li>插入代码：command + alt +c</li>
-<li>行间公式 command + Alt + b</li>
-<li>段落：command + 0</li>
-<li>竖线 ： command + Alt +q</li>
-<li>有序列表（1. 2.） ：输入数字+“.”之后输入空格 或者：command + Alt + o</li>
-<li>黑点标记：command + Alt + u</li>
-<li>隔离线shift + command + -</li>
-<li>超链接：command + Alt + l</li>
-<li>插入链接：command +k</li>
-<li>下划线：command +u</li>
-<li>加粗：command +b</li>
-<li>搜索：command +f</li>
-</ol>
-<p>补充：</p>
-<h2 id="一：菜单栏"><a href="#一：菜单栏" class="headerlink" title="一：菜单栏"></a>一：菜单栏</h2><ul>
-<li>文件：alt+F</li>
-<li>编辑：alt+E</li>
-<li>段落：alt+P</li>
-<li>格式：alt+O</li>
-<li>视图：alt+V</li>
-<li>主题：alt+T</li>
-<li>帮助：alt+H</li>
-</ul>
-<h2 id="二：文件"><a href="#二：文件" class="headerlink" title="二：文件"></a>二：文件</h2><ul>
-<li>新建：Ctrl+N</li>
-<li>新建窗口：Ctrl+Shift+N</li>
-<li>打开：Ctrl+O</li>
-<li>快速打开：Ctrl+P</li>
-<li>保存：Ctrl+S</li>
-<li>另存为：Ctrl+Shift+S</li>
-<li>偏好：Ctrl+,</li>
-<li>关闭：Ctrl+W</li>
-</ul>
-<h2 id="三：编辑"><a href="#三：编辑" class="headerlink" title="三：编辑"></a>三：编辑</h2><ul>
-<li>撤销：Ctrl+Z</li>
-<li>重做：Ctrl+Y</li>
-<li>剪切：Ctrl+X</li>
-<li>复制：Ctrl+C</li>
-<li>粘贴：Ctrl+V</li>
-<li>复制为MarkDown：Ctrl+Shift+C</li>
-<li>粘贴为纯文本：Ctrl+Shift+V</li>
-<li>全选：Ctrl+A</li>
-<li>选中当前行/句：Ctrl+L</li>
-<li>选中当前格式文本：Ctrl+E</li>
-<li>选中当前词：Ctrl+D</li>
-<li>跳转到文首：Ctrl+Home</li>
-<li>跳转到所选内容：Ctrl+J</li>
-<li>跳转到文末：Ctrl+End</li>
-<li>查找：Ctrl+F</li>
-<li>查找下一个：F3</li>
-<li>查找上一个：Shift+F3</li>
-<li>替换：Ctrl+H</li>
-</ul>
-<h2 id="四：段落"><a href="#四：段落" class="headerlink" title="四：段落"></a>四：段落</h2><ul>
-<li>标题：Ctrl+1/2/3/4/5</li>
-<li>段落：Ctrl+0</li>
-<li>增大标题级别：Ctrl+=</li>
-<li>减少标题级别：Ctrl+-</li>
-<li>表格：Ctrl+T</li>
-<li>代码块：Ctrl+Shift+K</li>
-<li>公式块：Ctrl+Shift+M</li>
-<li>引用：Ctrl+Shift+Q</li>
-<li>有序列表：Ctrl+Shift+[</li>
-<li>无序列表：Ctrl+Shift+]</li>
-<li>增加缩进：Ctrl+]</li>
-<li>减少缩进：Ctrl+[</li>
-</ul>
-<h2 id="五：格式"><a href="#五：格式" class="headerlink" title="五：格式"></a>五：格式</h2><ul>
-<li>加粗：Ctrl+B</li>
-<li>斜体：Ctrl+I</li>
-<li>下划线：Ctrl+U</li>
-<li>代码：Ctrl+Shift+`</li>
-<li>删除线：Alt+Shift+5</li>
-<li>超链接：Ctrl+K</li>
-<li>图像：Ctrl+Shift+I</li>
-<li>清除样式：Ctrl+</li>
-</ul>
-<h2 id="六：视图"><a href="#六：视图" class="headerlink" title="六：视图"></a>六：视图</h2><ul>
-<li>显示隐藏侧边栏：Ctrl+Shift+L</li>
-<li>大纲视图：Ctrl+Shift+1</li>
-<li>文档列表视图：Ctrl+Shift+2</li>
-<li>文件树视图：Ctrl+Shift+3</li>
-<li>源代码模式：Ctrl+/</li>
-<li>专注模式：F8</li>
-<li>打字机模式：F9</li>
-<li>切换全屏：F11</li>
-<li>实际大小：Ctrl+Shift+0</li>
-<li>放大：Ctrl+Shift+=</li>
-<li>缩小：Ctrl+Shift+-</li>
-<li>应用内窗口切换：Ctrl+Tab</li>
-<li>打开DevTools：Shift+F12</li>
-</ul>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://wzg6662.github.io/2019/03/03/Typora%E5%BF%AB%E6%8D%B7%E9%94%AE/" data-id="cklu9pto80000uvp432gs62cs" class="article-share-link">Share</a>
-      
-      
-  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/Typora/" rel="tag">Typora</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/wzg6662.github.io/tags/%E5%BF%AB%E6%8D%B7%E9%94%AE/" rel="tag">快捷键</a></li></ul>
-
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-hello-world" class="article article-type-post" itemscope itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/wzg6662.github.io/2018/12/11/hello-world/" class="article-date">
-  <time datetime="2018-12-11T14:18:23.000Z" itemprop="datePublished">2018-12-11</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/wzg6662.github.io/2018/12/11/hello-world/">Hello World</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>Welcome to <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a target="_blank" rel="noopener" href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a target="_blank" rel="noopener" href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a target="_blank" rel="noopener" href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;My New Post&quot;</span></span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/writing.html">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/server.html">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/generating.html">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://wzg6662.github.io/2018/12/11/hello-world/" data-id="cklt8dphi0000c4p448n47pvj" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-
+    <span class="page-number current">1</span><a class="page-number" href="/wzg6662.github.io/page/2/">2</a><a class="extend next" rel="next" href="/wzg6662.github.io/page/2/">Next &amp;raquo;</a>
+  </nav>
 
 </section>
         
@@ -1826,7 +1794,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Tags</h3>
     <div class="widget">
-      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/Mysql/" rel="tag">Mysql</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/PM2/" rel="tag">PM2</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/Redis/" rel="tag">Redis</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/Typora/" rel="tag">Typora</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/git/" rel="tag">git</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/github/" rel="tag">github</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/hexo/" rel="tag">hexo</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/linux/" rel="tag">linux</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" rel="tag">单例模式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%91%BD%E4%BB%A4/" rel="tag">命令</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%BC%82%E5%B8%B8/" rel="tag">异常</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%BF%AB%E6%8D%B7%E9%94%AE/" rel="tag">快捷键</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E6%95%99%E7%A8%8B/" rel="tag">教程</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E8%A7%84%E8%8C%83/" rel="tag">规范</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a></li></ul>
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/API/" rel="tag">API</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/Mysql/" rel="tag">Mysql</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/PM2/" rel="tag">PM2</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/Redis/" rel="tag">Redis</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/String/" rel="tag">String</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/Typora/" rel="tag">Typora</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/git/" rel="tag">git</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/github/" rel="tag">github</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/hexo/" rel="tag">hexo</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/linux/" rel="tag">linux</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/maven/" rel="tag">maven</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" rel="tag">单例模式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%91%BD%E4%BB%A4/" rel="tag">命令</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%B7%A5%E5%85%B7/" rel="tag">工具</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%BC%82%E5%B8%B8/" rel="tag">异常</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E5%BF%AB%E6%8D%B7%E9%94%AE/" rel="tag">快捷键</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E6%95%99%E7%A8%8B/" rel="tag">教程</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">数据库</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E8%A7%84%E8%8C%83/" rel="tag">规范</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" rel="tag">设计模式</a></li><li class="tag-list-item"><a class="tag-list-link" href="/wzg6662.github.io/tags/%E9%98%BF%E9%87%8C%E9%95%9C%E5%83%8F/" rel="tag">阿里镜像</a></li></ul>
     </div>
   </div>
 
@@ -1836,7 +1804,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Tag Cloud</h3>
     <div class="widget tagcloud">
-      <a href="/wzg6662.github.io/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/wzg6662.github.io/tags/PM2/" style="font-size: 10px;">PM2</a> <a href="/wzg6662.github.io/tags/Redis/" style="font-size: 10px;">Redis</a> <a href="/wzg6662.github.io/tags/Typora/" style="font-size: 10px;">Typora</a> <a href="/wzg6662.github.io/tags/git/" style="font-size: 10px;">git</a> <a href="/wzg6662.github.io/tags/github/" style="font-size: 20px;">github</a> <a href="/wzg6662.github.io/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/wzg6662.github.io/tags/linux/" style="font-size: 10px;">linux</a> <a href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" style="font-size: 10px;">单例模式</a> <a href="/wzg6662.github.io/tags/%E5%91%BD%E4%BB%A4/" style="font-size: 10px;">命令</a> <a href="/wzg6662.github.io/tags/%E5%BC%82%E5%B8%B8/" style="font-size: 10px;">异常</a> <a href="/wzg6662.github.io/tags/%E5%BF%AB%E6%8D%B7%E9%94%AE/" style="font-size: 10px;">快捷键</a> <a href="/wzg6662.github.io/tags/%E6%95%99%E7%A8%8B/" style="font-size: 10px;">教程</a> <a href="/wzg6662.github.io/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" style="font-size: 10px;">数据库</a> <a href="/wzg6662.github.io/tags/%E8%A7%84%E8%8C%83/" style="font-size: 10px;">规范</a> <a href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="font-size: 10px;">设计模式</a>
+      <a href="/wzg6662.github.io/tags/API/" style="font-size: 10px;">API</a> <a href="/wzg6662.github.io/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/wzg6662.github.io/tags/PM2/" style="font-size: 10px;">PM2</a> <a href="/wzg6662.github.io/tags/Redis/" style="font-size: 10px;">Redis</a> <a href="/wzg6662.github.io/tags/String/" style="font-size: 10px;">String</a> <a href="/wzg6662.github.io/tags/Typora/" style="font-size: 10px;">Typora</a> <a href="/wzg6662.github.io/tags/git/" style="font-size: 10px;">git</a> <a href="/wzg6662.github.io/tags/github/" style="font-size: 20px;">github</a> <a href="/wzg6662.github.io/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/wzg6662.github.io/tags/linux/" style="font-size: 20px;">linux</a> <a href="/wzg6662.github.io/tags/maven/" style="font-size: 10px;">maven</a> <a href="/wzg6662.github.io/tags/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/" style="font-size: 10px;">单例模式</a> <a href="/wzg6662.github.io/tags/%E5%91%BD%E4%BB%A4/" style="font-size: 10px;">命令</a> <a href="/wzg6662.github.io/tags/%E5%B7%A5%E5%85%B7/" style="font-size: 10px;">工具</a> <a href="/wzg6662.github.io/tags/%E5%BC%82%E5%B8%B8/" style="font-size: 10px;">异常</a> <a href="/wzg6662.github.io/tags/%E5%BF%AB%E6%8D%B7%E9%94%AE/" style="font-size: 10px;">快捷键</a> <a href="/wzg6662.github.io/tags/%E6%95%99%E7%A8%8B/" style="font-size: 10px;">教程</a> <a href="/wzg6662.github.io/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" style="font-size: 10px;">数据库</a> <a href="/wzg6662.github.io/tags/%E8%A7%84%E8%8C%83/" style="font-size: 10px;">规范</a> <a href="/wzg6662.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" style="font-size: 10px;">设计模式</a> <a href="/wzg6662.github.io/tags/%E9%98%BF%E9%87%8C%E9%95%9C%E5%83%8F/" style="font-size: 10px;">阿里镜像</a>
     </div>
   </div>
 
@@ -1845,7 +1813,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2021/03/">March 2021</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/10/">October 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/09/">September 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/08/">August 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2018/12/">December 2018</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2021/03/">March 2021</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/11/">November 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/10/">October 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/09/">September 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/08/">August 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2020/07/">July 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2019/09/">September 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/wzg6662.github.io/archives/2018/12/">December 2018</a></li></ul>
     </div>
   </div>
 
@@ -1862,15 +1830,15 @@
           </li>
         
           <li>
-            <a href="/wzg6662.github.io/2021/03/09/E9%E6%B5%81%E7%A8%8B%E8%A1%A8%E5%8D%95%E5%89%8D%E7%AB%AF%E6%8E%A5%E5%8F%A3API/">(no title)</a>
-          </li>
-        
-          <li>
             <a href="/wzg6662.github.io/2021/03/03/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%20-%20%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F/">设计模式 - 单例模式</a>
           </li>
         
           <li>
             <a href="/wzg6662.github.io/2021/03/03/github-%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/">github 国内镜像</a>
+          </li>
+        
+          <li>
+            <a href="/wzg6662.github.io/2020/11/09/E9%E6%B5%81%E7%A8%8B%E8%A1%A8%E5%8D%95%E5%89%8D%E7%AB%AF%E6%8E%A5%E5%8F%A3API/">E9流程表单前端接口API</a>
           </li>
         
           <li>
